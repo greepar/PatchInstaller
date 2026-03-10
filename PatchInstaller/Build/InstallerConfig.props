@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <!-- 输出文件名 -->
+    <AssemblyName>PatchInstaller</AssemblyName>
+
+    <!-- 程序标题 / 产品名 -->
+    <InstallerProductName>PatchInstaller</InstallerProductName>
+
+    <!-- 默认补丁下载链接，可留空 -->
+    <InstallerDefaultPatchUrl>https://patch.qwq.lu/kiss</InstallerDefaultPatchUrl>
+
+    <!-- 自动识别本地补丁时的文件名前缀 -->
+    <InstallerPatchFilePrefix>KissMeEveryday</InstallerPatchFilePrefix>
+
+    <!-- Steam 游戏目录名，用于自动定位 -->
+    <InstallerSteamGameFolderName>Mainichikisushite</InstallerSteamGameFolderName>
+  </PropertyGroup>
+</Project>
