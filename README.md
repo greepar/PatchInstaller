@@ -91,6 +91,24 @@ dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64
 .\PatchInstaller\bin\Release\net10.0\win-x64\publish\PatchInstaller.exe
 ```
 
+## 使用方法
+
+配置完上方信息后，可以按下面两种方式使用补丁安装器。
+
+### 1. 本地补丁自动识别
+
+`InstallerPatchFilePrefix` 配合自动扫描使用。
+
+程序启动后，会自动扫描程序同目录下符合此前缀的补丁压缩包。
+
+使用时只需要把 `.zip` / `.rar` / `.7z` 补丁文件放到程序同目录即可。
+
+### 2. 默认补丁直链自动下载
+
+`InstallerDefaultPatchUrl` 用于配置默认补丁直链。
+
+配置后，单文件程序可以直接按这个链接自动下载补丁并安装。
+
 ## 说明
 
 - 下载缓存临时放在 `%TEMP%\PatchInstaller`
