@@ -175,14 +175,9 @@ public partial class MainWindowViewModel : ViewModelBase
         var downloadFileName = patchUri is null
             ? string.Empty
             : await ResolveDownloadFileNameAsync(patchUri, _installCancellationTokenSource.Token);
-        var finalDownloadedPath = string.IsNullOrWhiteSpace(downloadFileName)
-            ? string.Empty
-            : Path.Combine(AppContext.BaseDirectory, downloadFileName);
         var temporaryDownloadPath = patchUri is null
             ? string.Empty
             : Path.Combine(workingRoot, GetTemporaryDownloadFileName(downloadFileName, patchUri));
-        var cachedPatchPath = GetPreferredDownloadCachePath(finalDownloadedPath)
-                              ?? FindPreferredCachedPatchPath(AppContext.BaseDirectory);
 
         try
         {
@@ -198,23 +193,10 @@ public partial class MainWindowViewModel : ViewModelBase
                 DownloadProgress = 100;
                 AddLog($"使用本地补丁: {archivePath}");
             }
-            else if (cachedPatchPath is { } validCachedPatch &&
-                     IsUsableCachedPatch(validCachedPatch) &&
-                     ArchiveInstaller.IsArchiveValid(validCachedPatch))
-            {
-                archivePath = validCachedPatch;
-                LocalPatchPath = archivePath;
-                Step1Status = "完成";
-                DownloadText = "使用本地缓存";
-                DownloadProgress = 100;
-                AddLog($"检测到已下载补丁，跳过下载: {archivePath}");
-            }
             else
             {
                 archivePath = temporaryDownloadPath;
                 await DownloadPatchAsync(patchUri!, archivePath, _installCancellationTokenSource.Token);
-                archivePath = PromoteDownloadedPatch(archivePath, finalDownloadedPath);
-                DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
                 LocalPatchPath = archivePath;
                 Step1Status = "完成";
             }
@@ -260,17 +242,17 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception ex)
         {
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
-            if (!useLocalPatch && IsUsableCachedPatch(LocalPatchPath))
-            {
-                DeleteBadCache(LocalPatchPath);
-            }
-
             StatusText = "安装失败";
             AddLog($"安装失败: {ex.Message}");
             Debug.WriteLine(ex);
         }
         finally
         {
+            if (!useLocalPatch)
+            {
+                DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
+            }
+
             _installCancellationTokenSource.Dispose();
             _installCancellationTokenSource = null;
             IsBusy = false;
@@ -337,23 +319,6 @@ public partial class MainWindowViewModel : ViewModelBase
             : fileName + ".7z";
     }
 
-    private static string PromoteDownloadedPatch(string temporaryPath, string finalPath)
-    {
-        if (string.IsNullOrWhiteSpace(finalPath))
-        {
-            return temporaryPath;
-        }
-
-        var finalDirectory = Path.GetDirectoryName(finalPath);
-        if (!string.IsNullOrWhiteSpace(finalDirectory))
-        {
-            Directory.CreateDirectory(finalDirectory);
-        }
-
-        File.Copy(temporaryPath, finalPath, true);
-        return finalPath;
-    }
-
     private static void DeleteTemporaryDownloadArtifacts(string? temporaryPath)
     {
         if (string.IsNullOrWhiteSpace(temporaryPath))
@@ -363,16 +328,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
         DeleteIfExists(temporaryPath);
         DeleteIfExists(temporaryPath + ".meta");
-    }
-
-    private static string? GetPreferredDownloadCachePath(string? finalDownloadedPath)
-    {
-        if (string.IsNullOrWhiteSpace(finalDownloadedPath))
-        {
-            return null;
-        }
-
-        return File.Exists(finalDownloadedPath) ? finalDownloadedPath : null;
     }
 
     private void ReportExtractProgress(int completedEntries, int totalEntries, string currentEntry)
@@ -388,45 +343,6 @@ public partial class MainWindowViewModel : ViewModelBase
                 ? string.Empty
                 : $"当前文件: {Path.GetFileName(currentEntry)}";
         });
-    }
-
-    private static string? FindPreferredCachedPatchPath(string workingRoot)
-    {
-        if (!Directory.Exists(workingRoot))
-        {
-            return null;
-        }
-
-        var candidates = SupportedPatchExtensions
-            .SelectMany(extension => Directory.GetFiles(workingRoot, $"*{extension}", SearchOption.TopDirectoryOnly))
-            .OrderBy(path => path.EndsWith("patch.7z", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(path => path)
-            .ToArray();
-
-        return candidates.FirstOrDefault();
-    }
-
-    private static bool IsUsableCachedPatch(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            return false;
-        }
-
-        try
-        {
-            var info = new FileInfo(path);
-            return info.Length > 64 * 1024;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static void DeleteBadCache(string path)
-    {
-        DeleteIfExists(path);
     }
 
     private static void DeleteIfExists(string path)
