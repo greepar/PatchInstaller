@@ -2,6 +2,8 @@
 
 通用补丁安装器模板，基于 Avalonia + NativeAOT。
 
+![demo](demo.webp)
+
 支持两种配置方式：
 - 编译期配置：修改 [InstallerConfig.props](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/Build/InstallerConfig.props)
 - 运行时配置：在程序同目录放一个 `PatchInstaller.json`，无需重新编译

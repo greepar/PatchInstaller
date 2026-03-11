@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <!-- 程序标题 / 产品名 -->
+    <!-- 标题 -->
     <InstallerProductName>PatchInstaller</InstallerProductName>
 
     <!-- 默认补丁下载链接，可留空 -->
