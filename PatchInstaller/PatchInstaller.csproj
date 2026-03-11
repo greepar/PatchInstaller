@@ -1,0 +1,80 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>13</LangVersion>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <Version>1.0.0</Version>
+        <FileVersion>1.0.0.0</FileVersion>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <InformationalVersion>1.0.0</InformationalVersion>
+        <Authors>greepar</Authors>
+        <Company>greepar</Company>
+        <Product>$(InstallerProductName)</Product>
+    </PropertyGroup>
+
+    <PropertyGroup Label="ApplicationConfiguration">
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
+    </PropertyGroup>
+
+    <PropertyGroup Label="AvaloniaConfiguration">
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    </PropertyGroup>
+
+    <Import Project="Build\InstallerConfig.props" />
+    <ItemGroup Label="TrimmerRootConfiguration" Condition="'$(Configuration)'=='Release'">
+        <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
+    </ItemGroup>
+
+    <Import Project="Build\NativeAOT.props" />
+
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\**" />
+    </ItemGroup>
+
+    <ItemGroup Label="PackageReferences">
+        <PackageReference Include="2ndLAB.ANGLE.Static" Version="7151.0.0-10.0.26100.0-1.79e529b" />
+        <PackageReference Include="2ndLAB.SkiaSharp.Static" Version="3.119.0-10.0.26100.0-1.1c7d845" />
+        <PackageReference Include="Avalonia" Version="12.0.999-cibuild0059760-alpha" />
+        <PackageReference Include="Avalonia.Desktop" Version="12.0.999-cibuild0059760-alpha" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.999-cibuild0059760-alpha" />
+        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+        <PackageReference Include="Avalonia.Diagnostics" Version="12.0.999-cibuild0059760-alpha">
+            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">none</IncludeAssets>
+            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+        <PackageReference Include="PolySharp" Version="1.15.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="SharpCompress" Version="0.47.0" />
+        <PackageReference Include="VC-LTL" Version="5.2.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\MessengerGenerator\MessengerGenerator.csproj" OutputItemType="Analyzer" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>InstallerProductName</_Parameter1>
+            <_Parameter2>$(InstallerProductName)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>InstallerDefaultPatchUrl</_Parameter1>
+            <_Parameter2>$(InstallerDefaultPatchUrl)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>InstallerPatchFilePrefix</_Parameter1>
+            <_Parameter2>$(InstallerPatchFilePrefix)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>InstallerSteamGameFolderName</_Parameter1>
+            <_Parameter2>$(InstallerSteamGameFolderName)</_Parameter2>
+        </AssemblyAttribute>
+    </ItemGroup>
+
+</Project>

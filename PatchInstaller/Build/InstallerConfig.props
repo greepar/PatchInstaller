@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <!-- 程序标题 / 产品名 -->
+    <InstallerProductName>PatchInstaller</InstallerProductName>
+
+    <!-- 默认补丁下载链接，可留空 -->
+    <InstallerDefaultPatchUrl></InstallerDefaultPatchUrl>
+
+    <!-- 自动识别本地补丁时的文件名前缀 -->
+    <InstallerPatchFilePrefix>Patch</InstallerPatchFilePrefix>
+
+    <!-- Steam 游戏目录名，用于自动定位 -->
+    <InstallerSteamGameFolderName>Game</InstallerSteamGameFolderName>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,120 @@
+name: build
+
+on:
+  push:
+    paths-ignore:
+      - "*.md"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.104"
+
+      - name: Prepare Tools
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v5.0.0/upx-5.0.0-win64.zip" -OutFile "upx.zip"
+          7z x -y .\upx.zip -o"."
+          Move-Item .\upx-5.0.0-win64\upx.exe .\upx.exe -Force
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\PatchInstaller.sln
+
+      - uses: TheMrMilchmann/setup-msvc-dev@v3
+        with:
+          arch: x64
+
+      - name: Publish
+        shell: pwsh
+        run: dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64 -o .\artifacts\publish
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $publishDir = ".\artifacts\publish"
+          $exeFile = Get-ChildItem -Path $publishDir -Filter "*.exe" | Select-Object -First 1
+          $pdbFile = Get-ChildItem -Path $publishDir -Filter "*.pdb" | Select-Object -First 1
+
+          if ($null -eq $exeFile) {
+            throw "No .exe file found in publish output."
+          }
+
+          $exePath = $exeFile.FullName
+          $pdbPath = if ($null -ne $pdbFile) { $pdbFile.FullName } else { $null }
+
+          7z a -y -mx9 PatchInstaller.7z $exePath
+
+          if ($null -ne $pdbPath) {
+            7z a -y -mx9 PatchInstaller.PDB.7z $pdbPath
+          }
+
+          .\upx.exe --ultra-brute --overlay=strip $exePath -o .\PatchInstaller.UPX.exe
+          7z a -y -mx9 PatchInstaller.UPX.7z .\PatchInstaller.UPX.exe
+
+      - name: Upload PatchInstaller
+        uses: actions/upload-artifact@v4
+        id: upload-artifact-1
+        with:
+          name: PatchInstaller.7z
+          path: PatchInstaller.7z
+
+      - name: Upload PatchInstaller UPX
+        uses: actions/upload-artifact@v4
+        id: upload-artifact-2
+        with:
+          name: PatchInstaller.UPX.7z
+          path: PatchInstaller.UPX.7z
+
+      - name: Upload PatchInstaller PDB
+        uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('PatchInstaller.PDB.7z') != '' }}
+        id: upload-artifact-3
+        with:
+          name: PatchInstaller.PDB.7z
+          path: PatchInstaller.PDB.7z
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: PatchInstaller.7z
+          subject-digest: sha256:${{ steps.upload-artifact-1.outputs.artifact-digest }}
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: PatchInstaller.UPX.7z
+          subject-digest: sha256:${{ steps.upload-artifact-2.outputs.artifact-digest }}
+
+      - uses: actions/attest-build-provenance@v2
+        if: ${{ hashFiles('PatchInstaller.PDB.7z') != '' }}
+        with:
+          subject-name: PatchInstaller.PDB.7z
+          subject-digest: sha256:${{ steps.upload-artifact-3.outputs.artifact-digest }}
+
+      - name: Release artifacts
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          fail_on_unmatched_files: false
+          files: |
+            PatchInstaller.7z
+            PatchInstaller.UPX.7z
+            PatchInstaller.PDB.7z

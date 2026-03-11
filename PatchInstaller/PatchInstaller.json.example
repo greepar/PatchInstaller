@@ -1,0 +1,6 @@
+{
+  "productName": "PatchInstaller",
+  "defaultPatchUrl": "https://example.com/patch/latest.zip",
+  "patchFilePrefix": "Patch",
+  "steamGameFolderName": "YourSteamGameFolder"
+}
