@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller.Services;
 
 internal sealed record DownloadProgressInfo(
     long DownloadedBytes,

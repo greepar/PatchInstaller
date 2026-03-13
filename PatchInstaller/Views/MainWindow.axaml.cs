@@ -4,9 +4,9 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Avalonia_NativeAOT_SingleFile.ViewModels;
+using MainWindowViewModel = PatchInstaller.ViewModels.MainWindowViewModel;
 
-namespace Avalonia_NativeAOT_SingleFile.Views;
+namespace PatchInstaller.Views;
 
 public partial class MainWindow : Window
 {

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller;
 
 internal static class InstallerBuildConfig
 {

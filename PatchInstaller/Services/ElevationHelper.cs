@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller.Services;
 
 internal static class ElevationHelper
 {

@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Runtime.Versioning;
+using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller.Services;
 
 [SupportedOSPlatform("windows")]
 internal static partial class SteamLocator

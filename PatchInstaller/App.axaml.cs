@@ -1,11 +1,11 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia_NativeAOT_SingleFile.ViewModels;
-using Avalonia_NativeAOT_SingleFile.Views;
+using MainWindow = PatchInstaller.Views.MainWindow;
+using MainWindowViewModel = PatchInstaller.ViewModels.MainWindowViewModel;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller;
 
-public partial class App : Application
+public class App : Application
 {
     public override void OnFrameworkInitializationCompleted()
     {

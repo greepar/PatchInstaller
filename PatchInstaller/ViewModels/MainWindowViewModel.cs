@@ -8,20 +8,20 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PatchInstaller.Services;
+using SteamLocator = PatchInstaller.Services.SteamLocator;
 
-namespace Avalonia_NativeAOT_SingleFile.ViewModels;
+namespace PatchInstaller.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    public const string DownloadSource = "下载链接";
+    private const string DownloadSource = "下载链接";
     public const string LocalSource = "本地补丁";
 
     private static readonly string[] SupportedPatchExtensions = [".7z", ".zip", ".rar"];
     private static readonly string DefaultPatchUrl = InstallerBuildConfig.DefaultPatchUrl;
     private const int ParallelDownloadSegments = 8;
     private const int DownloadRetryCount = 3;
-    private const double MinWindowHeightValue = 480;
-    private const double MinWindowWidthValue = 640;
 
     private CancellationTokenSource? _installCancellationTokenSource;
 
@@ -55,8 +55,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool CanCancelInstall => IsBusy;
 
     public string ProductName => InstallerBuildConfig.ProductName;
-    public static double MinWindowHeight => MinWindowHeightValue;
-    public static double MinWindowWidth => MinWindowWidthValue;
 
     public MainWindowViewModel()
     {
@@ -345,6 +343,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch
         {
+            // ignored
         }
     }
 
@@ -374,6 +373,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch
         {
+            // ignored
         }
     }
 

@@ -9,7 +9,7 @@ using SharpCompress.Archives.Zip;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller.Services;
 
 internal static class ArchiveInstaller
 {

@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:viewModels="using:Avalonia_NativeAOT_SingleFile.ViewModels"
-        x:Class="Avalonia_NativeAOT_SingleFile.Views.MainWindow"
-        x:DataType="viewModels:MainWindowViewModel"
+        xmlns:viewModels1="clr-namespace:PatchInstaller.ViewModels"
+        x:Class="PatchInstaller.Views.MainWindow"
+        x:DataType="viewModels1:MainWindowViewModel"
         mc:Ignorable="d"
         d:DesignWidth="980"
         d:DesignHeight="760"
@@ -45,7 +45,7 @@
     </Window.Styles>
 
     <Design.DataContext>
-        <viewModels:MainWindowViewModel />
+        <viewModels1:MainWindowViewModel />
     </Design.DataContext>
 
     <Border Padding="24" Background="#111827">

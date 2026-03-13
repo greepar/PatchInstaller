@@ -1,7 +1,8 @@
 ﻿using System;
 using Avalonia;
+using PatchInstaller.Services;
 
-namespace Avalonia_NativeAOT_SingleFile;
+namespace PatchInstaller;
 
 public static class Program
 {
