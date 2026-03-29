@@ -2,16 +2,14 @@ name: build
 
 on:
   push:
-    paths-ignore:
-      - "*.md"
+    tags:
+      - "v*.*"
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
     permissions:
-      id-token: write
-      attestations: write
       contents: write
 
     steps:
@@ -38,7 +36,7 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: dotnet restore .\PatchInstaller.sln
+        run: dotnet restore .\PatchInstaller.slnx
 
       - uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
@@ -52,11 +50,16 @@ jobs:
         shell: pwsh
         run: |
           $publishDir = ".\artifacts\publish"
+          $jsonExamplePath = ".\PatchInstaller\PatchInstaller.json.example"
           $exeFile = Get-ChildItem -Path $publishDir -Filter "*.exe" | Select-Object -First 1
           $pdbFile = Get-ChildItem -Path $publishDir -Filter "*.pdb" | Select-Object -First 1
 
           if ($null -eq $exeFile) {
             throw "No .exe file found in publish output."
+          }
+
+          if (-not (Test-Path $jsonExamplePath)) {
+            throw "PatchInstaller.json.example not found."
           }
 
           $exePath = $exeFile.FullName
@@ -71,50 +74,17 @@ jobs:
           .\upx.exe --ultra-brute --overlay=strip $exePath -o .\PatchInstaller.UPX.exe
           7z a -y -mx9 PatchInstaller.UPX.7z .\PatchInstaller.UPX.exe
 
-      - name: Upload PatchInstaller
-        uses: actions/upload-artifact@v4
-        id: upload-artifact-1
-        with:
-          name: PatchInstaller.7z
-          path: PatchInstaller.7z
-
-      - name: Upload PatchInstaller UPX
-        uses: actions/upload-artifact@v4
-        id: upload-artifact-2
-        with:
-          name: PatchInstaller.UPX.7z
-          path: PatchInstaller.UPX.7z
-
-      - name: Upload PatchInstaller PDB
-        uses: actions/upload-artifact@v4
-        if: ${{ hashFiles('PatchInstaller.PDB.7z') != '' }}
-        id: upload-artifact-3
-        with:
-          name: PatchInstaller.PDB.7z
-          path: PatchInstaller.PDB.7z
-
-      - uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: PatchInstaller.7z
-          subject-digest: sha256:${{ steps.upload-artifact-1.outputs.artifact-digest }}
-
-      - uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: PatchInstaller.UPX.7z
-          subject-digest: sha256:${{ steps.upload-artifact-2.outputs.artifact-digest }}
-
-      - uses: actions/attest-build-provenance@v2
-        if: ${{ hashFiles('PatchInstaller.PDB.7z') != '' }}
-        with:
-          subject-name: PatchInstaller.PDB.7z
-          subject-digest: sha256:${{ steps.upload-artifact-3.outputs.artifact-digest }}
+          Copy-Item $jsonExamplePath .\PatchInstaller.json -Force
 
       - name: Release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           fail_on_unmatched_files: false
+          overwrite_files: true
+          generate_release_notes: true
           files: |
             PatchInstaller.7z
             PatchInstaller.UPX.7z
             PatchInstaller.PDB.7z
+            PatchInstaller.json

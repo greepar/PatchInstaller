@@ -7,17 +7,3 @@ obj/
 *.pdb
 *.nupkg
 *.snupkg
-TestResults/
-artifacts/
-
-Avalonia-NativeAOT-SingleFile/bin/
-Avalonia-NativeAOT-SingleFile/obj/
-MessengerGenerator/bin/
-MessengerGenerator/obj/
-Models/bin/
-Models/obj/
-ViewLocatorGenerator/bin/
-ViewLocatorGenerator/obj/
-
-Avalonia-NativeAOT-SingleFile/KissPatchInstaller/
-Avalonia-NativeAOT-SingleFile/bin/**/KissPatchInstaller/

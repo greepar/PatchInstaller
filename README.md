@@ -5,13 +5,13 @@
 ![demo](demo.webp)
 
 支持两种配置方式：
-- 编译期配置：修改 [InstallerConfig.props](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/Build/InstallerConfig.props)
+- 编译期配置：修改 [InstallerConfig.props](PatchInstaller/Build/InstallerConfig.props)
 - 运行时配置：在程序同目录放一个 `PatchInstaller.json`，无需重新编译
 
 ## 编译期配置
 
 主配置文件：
-[InstallerConfig.props](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/Build/InstallerConfig.props)
+[InstallerConfig.props](PatchInstaller/Build/InstallerConfig.props)
 
 模板如下：
 
@@ -43,7 +43,7 @@ PatchInstaller.json
 程序启动时会优先读取它。只要这个文件存在，就会覆盖编译期默认值。
 
 示例文件：
-[PatchInstaller.json.example](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/PatchInstaller.json.example)
+[PatchInstaller.json.example](PatchInstaller/PatchInstaller.json.example)
 
 示例内容：
 
@@ -70,12 +70,12 @@ PatchInstaller.json
 ## 可选：修改图标
 
 默认图标文件：
-[avalonia-logo.ico](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/Assets/avalonia-logo.ico)
+[avalonia-logo.ico](PatchInstaller/Assets/avalonia-logo.ico)
 
 修改方式：
 1. 准备一个 `.ico` 文件
 2. 直接替换默认图标文件
-3. 或修改 [PatchInstaller.csproj](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/PatchInstaller.csproj) 里的：
+3. 或修改 [PatchInstaller.csproj](PatchInstaller/PatchInstaller.csproj) 里的：
 
 ```xml
 <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
@@ -95,10 +95,10 @@ PatchInstaller.json
 
 步骤：
 1. Fork 这个仓库
-2. 修改 [InstallerConfig.props](/C:/Users/greep/Downloads/1/PatchInstaller/PatchInstaller/Build/InstallerConfig.props)，或者准备运行时 `PatchInstaller.json`
+2. 修改 [InstallerConfig.props](PatchInstaller/Build/InstallerConfig.props)，或者准备运行时 `PatchInstaller.json`
 3. 如有需要，替换图标
 4. Push 到你自己的仓库
-5. GitHub Actions 会执行 [.github/workflows/build.yml](/C:/Users/greep/Downloads/1/PatchInstaller/.github/workflows/build.yml)
+5. GitHub Actions 会执行 [.github/workflows/build.yml](.github/workflows/build.yml)
 6. 在 Actions 产物里下载构建结果
 
 ### 方法二：下载到电脑上，用 `dotnet publish` 本地构建
@@ -146,4 +146,4 @@ dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64
 - 下载和解压工作目录：`%TEMP%\PatchInstaller`
 - 安装成功、失败、取消后，都会自动清理临时目录
 
-License: [MIT](/C:/Users/greep/Downloads/1/PatchInstaller/LICENSE)
+License: [MIT](LICENSE)
