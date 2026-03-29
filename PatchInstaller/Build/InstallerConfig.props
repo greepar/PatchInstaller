@@ -1,15 +1,8 @@
 <Project>
   <PropertyGroup>
-    <!-- 标题 -->
-    <InstallerProductName>PatchInstaller</InstallerProductName>
-
-    <!-- 默认补丁下载链接，可留空 -->
-    <InstallerDefaultPatchUrl></InstallerDefaultPatchUrl>
-
-    <!-- 自动识别本地补丁时的文件名前缀 -->
-    <InstallerPatchFilePrefix>Patch</InstallerPatchFilePrefix>
-
-    <!-- Steam 游戏目录名，用于自动定位 -->
-    <InstallerSteamGameFolderName>Game</InstallerSteamGameFolderName>
+    <InstallerName>PatchInstaller</InstallerName>
+    <DefaultPatchUrl></DefaultPatchUrl>
+    <PatchFilePrefix>Patch</PatchFilePrefix>
+    <SteamGameFolderName>Game</SteamGameFolderName>
   </PropertyGroup>
 </Project>

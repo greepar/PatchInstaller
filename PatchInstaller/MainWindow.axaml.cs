@@ -1,21 +1,23 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using MainWindowViewModel = PatchInstaller.ViewModels.MainWindowViewModel;
+using PatchInstaller;
+using SukiUI.Controls;
+using SukiUI.Dialogs;
 
-namespace PatchInstaller.Views;
+namespace PatchInstaller;
 
-public partial class MainWindow : Window
+public partial class MainWindow : SukiWindow
 {
     private const string ProjectGithubUrl = "https://github.com/greepar/PatchInstaller";
+    public static ISukiDialogManager DialogManager { get; } = new SukiDialogManager();
 
     public MainWindow()
     {
         InitializeComponent();
-        Title = InstallerBuildConfig.ProductName;
+        DialogHost.Manager = DialogManager;
     }
 
     private void OpenProjectGithub(object? sender, RoutedEventArgs e)
@@ -48,8 +50,7 @@ public partial class MainWindow : Window
 
         viewModel.GamePath = folder.TryGetLocalPath() ?? folder.Path.LocalPath;
         viewModel.StatusText = "已手动选择游戏目录";
-        viewModel.Step2Status = "已定位";
-        viewModel.Logs.Add($"[{DateTime.Now:HH:mm:ss}] 已手动选择游戏目录: {viewModel.GamePath}");
+        viewModel.Step1Status = "已定位";
     }
 
     private async void ManualSelectPatch(object? sender, RoutedEventArgs e)
@@ -67,7 +68,7 @@ public partial class MainWindow : Window
             [
                 new FilePickerFileType("支持的补丁格式")
                 {
-                    Patterns = ["*.7z", "*.zip", "*.rar"]
+                    Patterns = ["*.7z", "*.zip", "*.rar", "*.zip.001", "*.rar.001"]
                 }
             ]
         });
@@ -81,7 +82,6 @@ public partial class MainWindow : Window
         viewModel.LocalPatchPath = file.TryGetLocalPath() ?? file.Path.LocalPath;
         viewModel.SelectedPatchSource = MainWindowViewModel.LocalSource;
         viewModel.StatusText = "已手动选择补丁";
-        viewModel.Step1Status = "已选择";
-        viewModel.Logs.Add($"[{DateTime.Now:HH:mm:ss}] 已手动选择补丁: {viewModel.LocalPatchPath}");
+        viewModel.Step2Status = "已选择";
     }
 }

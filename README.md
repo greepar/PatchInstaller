@@ -18,19 +18,19 @@
 ```xml
 <Project>
   <PropertyGroup>
-    <InstallerProductName>PatchInstaller</InstallerProductName>
-    <InstallerDefaultPatchUrl>https://patch.qwq.lu/kiss</InstallerDefaultPatchUrl>
-    <InstallerPatchFilePrefix>KissMeEveryday</InstallerPatchFilePrefix>
-    <InstallerSteamGameFolderName>Mainichikisushite</InstallerSteamGameFolderName>
+    <InstallerName>PatchInstaller</InstallerName>
+    <DefaultPatchUrl>https://patch.qwq.lu/kiss</DefaultPatchUrl>
+    <PatchFilePrefix>KissMeEveryday</PatchFilePrefix>
+    <SteamGameFolderName>Mainichikisushite</SteamGameFolderName>
   </PropertyGroup>
 </Project>
 ```
 
 字段说明：
-- `InstallerProductName`：窗口标题、界面主标题、产品名
-- `InstallerDefaultPatchUrl`：默认补丁下载链接，可留空
-- `InstallerPatchFilePrefix`：自动识别本地补丁时的文件名前缀
-- `InstallerSteamGameFolderName`：Steam 游戏目录名，用于自动定位
+- `InstallerName`：界面主标题
+- `DefaultPatchUrl`：默认补丁下载链接，可留空
+- `PatchFilePrefix`：自动识别本地补丁时的文件名前缀(适合自带补丁压缩包)
+- `SteamGameFolderName`：Steam 游戏目录名，用于自动定位
 
 ## 运行时 JSON 配置
 

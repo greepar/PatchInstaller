@@ -1,5 +1,3 @@
 <Solution>
-    <Project Path="PatchInstaller/PatchInstaller.csproj"/>
-    <Project Path="MessengerGenerator/MessengerGenerator.csproj"/>
-    <Project Path="ViewLocatorGenerator/ViewLocatorGenerator.csproj"/>
+    <Project Path="PatchInstaller/PatchInstaller.csproj" />
 </Solution>

@@ -12,20 +12,20 @@ internal static class InstallerBuildConfig
     private static readonly RuntimeConfig? Runtime = LoadRuntimeConfig();
 
     public static string ProductName => GetValue(
-        [Runtime?.ProductName, GetMetadata("InstallerProductName")],
+        [Runtime?.ProductName, GetMetadata("InstallerName")],
         typeof(InstallerBuildConfig).Assembly.GetName().Name ?? "PatchInstaller");
 
     public static string DefaultPatchUrl => GetValue(
-        [Runtime?.DefaultPatchUrl, GetMetadata("InstallerDefaultPatchUrl")],
+        [Runtime?.DefaultPatchUrl, GetMetadata("DefaultPatchUrl")],
         string.Empty);
 
     public static string PatchFilePrefix => GetValue(
-        [Runtime?.PatchFilePrefix, GetMetadata("InstallerPatchFilePrefix")],
+        [Runtime?.PatchFilePrefix, GetMetadata("PatchFilePrefix")],
         string.Empty);
 
     public static string SteamGameFolderName => GetValue(
-        [Runtime?.SteamGameFolderName, GetMetadata("InstallerSteamGameFolderName")],
-        string.Empty);
+        [Runtime?.SteamGameFolderName, GetMetadata("SteamGameFolderName")],
+        "Mainichikisushite");
 
     private static string GetValue(IEnumerable<string?> candidates, string fallback)
     {

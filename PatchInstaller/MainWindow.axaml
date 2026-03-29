@@ -1,0 +1,216 @@
+<sukiUi:SukiWindow xmlns="https://github.com/avaloniaui"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:viewModels="clr-namespace:PatchInstaller"
+                   xmlns:sukiUi="clr-namespace:SukiUI.Controls;assembly=SukiUI"
+                   xmlns:patchInstaller="clr-namespace:PatchInstaller"
+                   x:Class="PatchInstaller.MainWindow"
+                   x:DataType="patchInstaller:MainWindowViewModel"
+                   FontFamily="avares://PatchInstaller/Assets/Fonts/NotoSansSC-Medium.ttf#Noto Sans SC Medium"
+                   Width="900"
+                   Height="550"
+                   CanResize="False"
+                   CanMinimize="True"
+                   Title="Patch Installer">
+
+    <sukiUi:SukiWindow.Hosts>
+        <sukiUi:SukiDialogHost Name="DialogHost" />
+    </sukiUi:SukiWindow.Hosts>
+
+    <Design.DataContext>
+        <patchInstaller:MainWindowViewModel />
+    </Design.DataContext>
+
+    <Border Padding="24">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="16">
+            <Grid  ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Grid.Column="0" Spacing="6">
+                    <TextBlock FontSize="28"
+                               FontWeight="Bold"
+                               Text="{Binding ProductName}" />
+                    <TextBlock Text="支持从链接下载，或直接使用本地 zip / rar 补丁包进行安装。" />
+                </StackPanel>
+                
+                
+                    <Button Grid.Column="1"
+                        CornerRadius="12"
+                        Padding="7"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Click="OpenProjectGithub"
+                        BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="28"
+                                Height="28"
+                                CornerRadius="14"
+                                BorderThickness="1">
+                            <Viewbox Width="16"
+                                     Height="16"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center">
+                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M10.303 16.652c-2.837-.344-4.835-2.385-4.835-5.028 0-1.074.387-2.235 1.031-3.008-.279-.709-.236-2.214.086-2.837.86-.107 2.02.344 2.708.967.816-.258 1.676-.386 2.728-.386 1.053 0 1.913.128 2.686.365.666-.602 1.848-1.053 2.708-.946.3.581.344 2.085.064 2.815.688.817 1.053 1.913 1.053 3.03 0 2.643-1.998 4.641-4.877 5.006.73.473 1.224 1.504 1.224 2.686v2.235c0 .644.537 1.01 1.182.752 3.889-1.483 6.94-5.372 6.94-10.185 0-6.081-4.942-11.044-11.022-11.044-6.081 0-10.98 4.963-10.98 11.044a10.84 10.84 0 0 0 7.112 10.206c.58.215 1.139-.172 1.139-.752v-1.719a2.768 2.768 0 0 1-1.032.215c-1.418 0-2.256-.773-2.857-2.213-.237-.58-.495-.924-.989-.988-.258-.022-.344-.129-.344-.258 0-.258.43-.451.86-.451.623 0 1.16.386 1.719 1.181.43.623.881.903 1.418.903.537 0 .881-.194 1.375-.688.365-.365.645-.687.903-.902Z" />
+                            </Viewbox>
+                        </Border>
+                        <TextBlock VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="/ PatchInstaller" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Border Grid.Row="1" Padding="18" CornerRadius="14">
+                <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
+                    <Grid Grid.Row="0"
+                          Height="40"
+                          ColumnDefinitions="Auto,*" ColumnSpacing="0">
+                        <ComboBox Grid.Column="0"
+                                  Margin="-10 0 0 0"
+                                  IsEnabled="{Binding CanInstall}"
+                                  SelectedItem="{Binding SelectedPatchSource}"
+                                  ItemsSource="{Binding PatchSourceOptions}" />
+
+                        <Grid Grid.Column="1"
+                              IsVisible="{Binding UseDownloadSource}"
+                              ColumnDefinitions="*,130"
+                              ColumnSpacing="12">
+                            <TextBox Grid.Column="0"
+                                     IsEnabled="{Binding CanInstall}"
+                                     Watermark="请输入下载链接"
+                                     Text="{Binding PatchUrl}" 
+                                     />
+                            <Button Grid.Column="1"
+                                    Width="130"
+                                    IsEnabled="{Binding CanInstall}"
+                                    Command="{Binding InstallCommand}"
+                                    Content="一键安装" />
+                        </Grid>
+
+                        <Grid Grid.Column="1"
+                              IsVisible="{Binding UseLocalSource}"
+                              ColumnDefinitions="*,130,130"
+                              ColumnSpacing="12">
+                            <TextBox Grid.Column="0"
+                                     IsEnabled="{Binding CanInstall}"
+                                     Watermark="请选择 zip / rar / 7z"
+                                     Text="{Binding LocalPatchPath}" />
+                            <Button Grid.Column="1"
+                                    
+                                    Width="130"
+                                    IsEnabled="{Binding CanInstall}"
+                                    Click="ManualSelectPatch"
+                                    Content="重新选择补丁" />
+                            <Button Grid.Column="2"
+                                    IsVisible="{Binding ShowLocalInstallButton}"
+                                    
+                                    Width="130"
+                                    IsEnabled="{Binding CanInstall}"
+                                    Command="{Binding InstallCommand}"
+                                    Content="一键安装" />
+                        </Grid>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                            
+                                   Text="游戏目录" />
+                        <TextBox Grid.Column="1"
+                                 Watermark="请选择游戏安装目录"
+                                 IsEnabled="{Binding CanInstall}"
+                                 Text="{Binding GamePath}" />
+                        <Button Grid.Column="2"
+                                
+                                Width="130"
+                                IsEnabled="{Binding CanInstall}"
+                                Click="ManualLocateGamePath"
+                                Content="手动定位" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Padding="18" CornerRadius="14">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+                        <TextBlock Grid.Column="0"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Bottom"
+                                   Text="安装进度:" />
+                        <TextBlock Grid.Column="1"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding DownloadText}" />
+                        <Button Grid.Column="2"
+                                IsVisible="{Binding CanCancelInstall}"
+                                Command="{Binding CancelInstallCommand}"
+                                Content="取消下载"/>
+                        <Button Grid.Column="3"
+                                Width="1" MinWidth="1"
+                                IsVisible="True"
+                                Opacity="0"
+                                IsHitTestVisible="False"
+                                Content="占位"/>
+                    </Grid>
+
+                    <ProgressBar Grid.Row="1"
+                                 Height="12"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding DownloadProgress}" />
+
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding DownloadSpeedText}" />
+
+                    <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <sukiUi:GlassCard Padding="14"
+                                          Classes.Primary="{Binding IsStep1Active}"
+                                          Classes.Accent="{Binding IsStep1Completed}">
+                            <StackPanel Spacing="6">
+                                <TextBlock FontWeight="SemiBold"
+                                           Opacity="0.75"
+                                           Text="定位游戏" />
+                                <Separator />
+                                <TextBlock FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding Step1Status}" />
+                            </StackPanel>
+                        </sukiUi:GlassCard>
+                        <sukiUi:GlassCard Grid.Column="1"
+                                          Padding="14"
+                                          Classes.Primary="{Binding IsStep2Active}"
+                                          Classes.Accent="{Binding IsStep2Completed}">
+                            <StackPanel Spacing="6">
+                                <TextBlock FontWeight="SemiBold"
+                                           Opacity="0.75"
+                                           Text="获取补丁" />
+                                <Separator />
+                                <TextBlock FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding Step2Status}" />
+                            </StackPanel>
+                        </sukiUi:GlassCard>
+                        <sukiUi:GlassCard Grid.Column="2"
+                                          Padding="14"
+                                          Classes.Primary="{Binding IsStep3Active}"
+                                          Classes.Accent="{Binding IsStep3Completed}">
+                            <StackPanel Spacing="6">
+                                <TextBlock FontWeight="SemiBold"
+                                           Opacity="0.75"
+                                           Text="解压安装" />
+                                <Separator />
+                                <TextBlock FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding Step3Status}" />
+                            </StackPanel>
+                        </sukiUi:GlassCard>
+                    </Grid>
+                </Grid>
+            </Border>
+            
+            <TextBlock Grid.Row="3" Margin="0 -3 0 0"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Top"
+                       Text="© greepar · v1.1"/>
+
+        </Grid>
+    </Border>
+</sukiUi:SukiWindow>

@@ -1,12 +1,16 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using MainWindow = PatchInstaller.Views.MainWindow;
-using MainWindowViewModel = PatchInstaller.ViewModels.MainWindowViewModel;
+using Avalonia.Markup.Xaml;
 
 namespace PatchInstaller;
 
 public class App : Application
 {
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

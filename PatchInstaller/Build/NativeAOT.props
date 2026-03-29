@@ -1,4 +1,4 @@
-﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
     <PropertyGroup Label="PublishConfiguration" Condition="'$(Configuration)'=='Release'">
         <PublishAot>true</PublishAot>
@@ -21,7 +21,7 @@
         <LinkerArg Include="fontsub.lib;Ole32.lib;USP10.lib"/>
         <LinkerArg Include="d3d12.lib;d3dcompiler.lib"/>
     </ItemGroup>
-
+    
     <Target Name="CleanupNativeAotPublishArtifacts" AfterTargets="Publish" Condition="'$(PublishAot)' == 'true'">
         <ItemGroup>
             <FilesToDelete Include="$(PublishDir)*.pdb"/>

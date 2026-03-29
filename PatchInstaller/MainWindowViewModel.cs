@@ -11,16 +11,17 @@ using CommunityToolkit.Mvvm.Input;
 using PatchInstaller.Services;
 using SteamLocator = PatchInstaller.Services.SteamLocator;
 
-namespace PatchInstaller.ViewModels;
+namespace PatchInstaller;
 
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainWindowViewModel : ObservableObject
 {
     private const string DownloadSource = "下载链接";
     public const string LocalSource = "本地补丁";
 
     private static readonly string[] SupportedPatchExtensions = [".7z", ".zip", ".rar"];
+    private static readonly string[] SupportedMultipartPatterns = ["*.zip.001", "*.rar.001"];
     private static readonly string DefaultPatchUrl = InstallerBuildConfig.DefaultPatchUrl;
-    private const int ParallelDownloadSegments = 8;
+    private const int ParallelDownloadSegments = 12;
     private const int DownloadRetryCount = 3;
 
     private CancellationTokenSource? _installCancellationTokenSource;
@@ -43,7 +44,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _canInstall = true;
 
-    public ObservableCollection<string> Logs { get; } = [];
     public ObservableCollection<string> PatchSourceOptions { get; } = [DownloadSource, LocalSource];
 
     public bool UseDownloadSource => string.Equals(SelectedPatchSource, DownloadSource, StringComparison.Ordinal);
@@ -53,6 +53,12 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool ShowLocalInstallButton => UseLocalSource && IsLocalPatchReady;
     public bool ShowSelectPatchButton => UseLocalSource;
     public bool CanCancelInstall => IsBusy;
+    public bool IsStep1Active => string.Equals(Step1Status, "定位中", StringComparison.Ordinal);
+    public bool IsStep2Active => string.Equals(Step2Status, "下载中", StringComparison.Ordinal);
+    public bool IsStep3Active => string.Equals(Step3Status, "解压中", StringComparison.Ordinal) || string.Equals(Step3Status, "安装中", StringComparison.Ordinal);
+    public bool IsStep1Completed => string.Equals(Step1Status, "完成", StringComparison.Ordinal) || string.Equals(Step1Status, "已定位", StringComparison.Ordinal);
+    public bool IsStep2Completed => string.Equals(Step2Status, "完成", StringComparison.Ordinal) || string.Equals(Step2Status, "已选择", StringComparison.Ordinal);
+    public bool IsStep3Completed => string.Equals(Step3Status, "完成", StringComparison.Ordinal);
 
     public string ProductName => InstallerBuildConfig.ProductName;
 
@@ -61,12 +67,7 @@ public partial class MainWindowViewModel : ViewModelBase
         GamePath = NormalizePath(GetDetectedGamePath());
         if (!string.IsNullOrWhiteSpace(GamePath))
         {
-            Step2Status = "已定位";
-            AddLog($"已自动定位游戏目录: {GamePath}");
-        }
-        else
-        {
-            AddLog("未自动定位到游戏目录，请手动确认目录。");
+            Step1Status = "已定位";
         }
 
         var autoPatch = FindAutoSelectedPatchPath();
@@ -74,7 +75,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             LocalPatchPath = autoPatch;
             SelectedPatchSource = LocalSource;
-            AddLog($"检测到本地补丁文件: {LocalPatchPath}");
         }
     }
 
@@ -106,6 +106,24 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanCancelInstall));
     }
 
+    partial void OnStep1StatusChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsStep1Active));
+        OnPropertyChanged(nameof(IsStep1Completed));
+    }
+
+    partial void OnStep2StatusChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsStep2Active));
+        OnPropertyChanged(nameof(IsStep2Completed));
+    }
+
+    partial void OnStep3StatusChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsStep3Active));
+        OnPropertyChanged(nameof(IsStep3Completed));
+    }
+
     [RelayCommand]
     private void CancelInstall()
     {
@@ -134,7 +152,6 @@ public partial class MainWindowViewModel : ViewModelBase
             if (!UseDownloadSource)
             {
                 StatusText = "请先选择本地补丁";
-                AddLog("本地补丁模式下尚未选择有效压缩包。");
                 return;
             }
 
@@ -142,7 +159,6 @@ public partial class MainWindowViewModel : ViewModelBase
                 (patchUri.Scheme != Uri.UriSchemeHttp && patchUri.Scheme != Uri.UriSchemeHttps))
             {
                 StatusText = "补丁链接无效";
-                AddLog($"补丁链接无效: {PatchUrl}");
                 return;
             }
         }
@@ -151,8 +167,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (!Directory.Exists(GamePath))
         {
             StatusText = "游戏目录不存在";
-            Step2Status = "未找到";
-            AddLog($"游戏目录不存在: {GamePath}");
+            Step1Status = "未找到";
             return;
         }
 
@@ -163,59 +178,60 @@ public partial class MainWindowViewModel : ViewModelBase
         DownloadProgress = 0;
         DownloadText = "准备处理";
         DownloadSpeedText = string.Empty;
-        Step1Status = "进行中";
-        Step2Status = "已定位";
+        Step1Status = "已定位";
+        Step2Status = "下载中";
         Step3Status = "未执行";
         StatusText = "开始安装";
 
         var workingRoot = Path.Combine(Path.GetTempPath(), "PatchInstaller");
         var extractPath = Path.Combine(workingRoot, "extracted");
-        var downloadFileName = patchUri is null
-            ? string.Empty
-            : await ResolveDownloadFileNameAsync(patchUri, _installCancellationTokenSource.Token);
-        var temporaryDownloadPath = patchUri is null
-            ? string.Empty
-            : Path.Combine(workingRoot, GetTemporaryDownloadFileName(downloadFileName, patchUri));
+        var temporaryDownloadPath = string.Empty;
+        string? archivePath = null;
 
         try
         {
+            if (patchUri is not null)
+            {
+                var downloadFileName = await ResolveDownloadFileNameAsync(patchUri, _installCancellationTokenSource.Token);
+                temporaryDownloadPath = Path.Combine(workingRoot, GetTemporaryDownloadFileName(downloadFileName, patchUri));
+            }
+
             PrepareWorkingDirectory(workingRoot, extractPath);
 
-            string archivePath;
             if (useLocalPatch)
             {
                 archivePath = localPatch;
                 LocalPatchPath = archivePath;
-                Step1Status = "完成";
+                Step2Status = "已选择";
                 DownloadText = "使用本地补丁";
                 DownloadProgress = 100;
-                AddLog($"使用本地补丁: {archivePath}");
             }
             else
             {
                 archivePath = temporaryDownloadPath;
                 await DownloadPatchAsync(patchUri!, archivePath, _installCancellationTokenSource.Token);
                 LocalPatchPath = archivePath;
-                Step1Status = "完成";
             }
 
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
+            if (!useLocalPatch)
+            {
+                Step2Status = "完成";
+            }
+
             StatusText = "正在解压补丁";
-            Step2Status = "解压中";
+            Step3Status = "解压中";
             DownloadProgress = 0;
             DownloadText = "正在解压 0.0%";
             DownloadSpeedText = string.Empty;
-            AddLog($"开始解压补丁: {archivePath}");
             await ArchiveInstaller.ExtractAsync(archivePath, extractPath, ReportExtractProgress);
 
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             var sourceRoot = ResolveExtractedRoot(extractPath);
-            Step2Status = "完成";
             Step3Status = "安装中";
             StatusText = "正在覆盖安装";
-            AddLog($"开始安装到游戏目录: {GamePath}");
 
             var copied = await ElevationHelper.CopyWithElevationFallbackAsync(sourceRoot, GamePath);
             if (!copied)
@@ -227,22 +243,46 @@ public partial class MainWindowViewModel : ViewModelBase
             StatusText = "补丁安装完成";
             DownloadText = "处理完成";
             DownloadSpeedText = string.Empty;
-            AddLog("补丁安装完成。");
         }
         catch (OperationCanceledException)
         {
+            if (IsStep2Active)
+            {
+                Step2Status = "已取消";
+            }
+            else if (IsStep3Active)
+            {
+                Step3Status = "已取消";
+            }
+
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
-            StatusText = "已取消安装";
+            StatusText = "安装已停止";
             DownloadText = "已取消";
             DownloadSpeedText = string.Empty;
-            AddLog("已取消当前安装任务。");
         }
         catch (Exception ex)
         {
+            if (IsPatchAcquisitionFailure(ex, archivePath))
+            {
+                Step2Status = "失败";
+                if (!IsStep3Completed)
+                {
+                    Step3Status = "未执行";
+                }
+            }
+            else if (IsStep2Active)
+            {
+                Step2Status = "失败";
+            }
+            else if (IsStep3Active)
+            {
+                Step3Status = "失败";
+            }
+
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "安装失败";
-            AddLog($"安装失败: {ex.Message}");
             Debug.WriteLine(ex);
+            await DialogService.ShowErrorAsync("安装失败", ex.Message);
         }
         finally
         {
@@ -265,7 +305,6 @@ public partial class MainWindowViewModel : ViewModelBase
         DownloadProgress = 0;
         DownloadText = "正在连接服务器";
         DownloadSpeedText = string.Empty;
-        AddLog($"开始下载补丁: {patchUri}");
 
         await PatchDownloader.DownloadAsync(
             patchUri,
@@ -276,10 +315,10 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 DownloadProgress = report.ProgressPercent;
                 DownloadText = report.TotalBytes is > 0
-                    ? $"正在下载 {report.ProgressPercent:0.0}% ({FormatBytes(report.DownloadedBytes)} / {FormatBytes(report.TotalBytes.Value)})"
+                    ? $"正在下载 {report.ProgressPercent:0.0}% ({FormatBytes(report.DownloadedBytes)} / {FormatBytesPrecise(report.TotalBytes.Value)})"
                     : $"正在下载 {FormatBytes(report.DownloadedBytes)}";
                 DownloadSpeedText = report.BytesPerSecond > 0
-                    ? $"速度 {FormatBytes((long)report.BytesPerSecond)}/s"
+                    ? $"速度 {FormatSpeed(report.BytesPerSecond)}/s"
                     : string.Empty;
             }),
             cancellationToken);
@@ -287,7 +326,6 @@ public partial class MainWindowViewModel : ViewModelBase
         DownloadProgress = 100;
         DownloadText = "下载完成";
         DownloadSpeedText = string.Empty;
-        AddLog($"下载完成: {downloadPath}");
     }
 
     private static string GetTemporaryDownloadFileName(string? suggestedFileName, Uri patchUri)
@@ -313,8 +351,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static string EnsureSupportedPatchFileName(string fileName)
     {
-        var extension = Path.GetExtension(fileName);
-        return SupportedPatchExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase)
+        return ArchiveInstaller.IsSupportedArchivePath(fileName)
             ? fileName
             : fileName + ".7z";
     }
@@ -393,9 +430,17 @@ public partial class MainWindowViewModel : ViewModelBase
                 continue;
             }
 
-            var patternPrefix = string.IsNullOrWhiteSpace(prefix) ? "*" : prefix;
-            var candidates = SupportedPatchExtensions
+            var patternPrefix = string.IsNullOrWhiteSpace(prefix) ? string.Empty : prefix;
+            var archiveCandidates = SupportedPatchExtensions
                 .SelectMany(extension => Directory.GetFiles(directory, $"{patternPrefix}*{extension}", SearchOption.TopDirectoryOnly))
+                .Where(ArchiveInstaller.IsSupportedArchivePath);
+            var multipartCandidates = SupportedMultipartPatterns
+                .SelectMany(pattern => Directory.GetFiles(directory, $"{patternPrefix}{pattern}", SearchOption.TopDirectoryOnly))
+                .Where(ArchiveInstaller.IsMultipartArchiveFirstSegment);
+
+            var candidates = archiveCandidates
+                .Concat(multipartCandidates)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(path => path)
                 .ToArray();
 
@@ -410,7 +455,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static bool IsSupportedPatchFile(string? path) =>
         !string.IsNullOrWhiteSpace(path) &&
-        SupportedPatchExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+        ArchiveInstaller.IsSupportedArchivePath(path);
 
     private static string NormalizePath(string? path)
     {
@@ -434,6 +479,36 @@ public partial class MainWindowViewModel : ViewModelBase
             unitIndex++;
         }
 
+        return $"{value:0} {units[unitIndex]}";
+    }
+
+    private static string FormatSpeed(double bytesPerSecond)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = bytesPerSecond;
+        var unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{value:0.00} {units[unitIndex]}";
+    }
+
+    private static string FormatBytesPrecise(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double value = bytes;
+        var unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
         return $"{value:0.##} {units[unitIndex]}";
     }
 
@@ -441,6 +516,30 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var directories = Directory.GetDirectories(extractPath);
         return directories.Length == 1 ? directories[0] : extractPath;
+    }
+
+    private static bool IsPatchAcquisitionFailure(Exception ex, string? archivePath)
+    {
+        if (ex is not FileNotFoundException fileNotFoundException)
+        {
+            return false;
+        }
+
+        if (ex.Message.Contains("缺少分片文件", StringComparison.Ordinal) ||
+            ex.Message.Contains("找不到压缩包文件", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(archivePath) || string.IsNullOrWhiteSpace(fileNotFoundException.FileName))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            NormalizePath(fileNotFoundException.FileName),
+            NormalizePath(archivePath),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private void PrepareWorkingDirectory(string workingRoot, string extractPath)
@@ -453,11 +552,5 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         Directory.CreateDirectory(extractPath);
-        AddLog($"工作目录: {workingRoot}");
-    }
-
-    private void AddLog(string message)
-    {
-        Dispatcher.UIThread.Post(() => Logs.Add($"[{DateTime.Now:HH:mm:ss}] {message}"));
     }
 }
