@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
@@ -13,8 +12,8 @@ public static class DialogService
     {
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            await FluentSukiDialogBuilder
-                .CreateDialog(MainWindow.DialogManager)
+            await MainWindow.DialogManager
+                .CreateDialog()
                 .OfType(NotificationType.Error)
                 .WithTitle(title)
                 .WithContent(new SelectableTextBlock

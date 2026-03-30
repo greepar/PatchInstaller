@@ -5,7 +5,7 @@
                    xmlns:patchInstaller="clr-namespace:PatchInstaller"
                    x:Class="PatchInstaller.MainWindow"
                    x:DataType="patchInstaller:MainWindowViewModel"
-                   FontFamily="avares://PatchInstaller/Assets/Fonts/NotoSansSC-Medium.ttf#Noto Sans SC Medium"
+                   WindowStartupLocation="CenterScreen"
                    Width="900"
                    Height="550"
                    CanResize="False"
@@ -29,8 +29,7 @@
                                Text="{Binding ProductName}" />
                     <TextBlock Text="支持从链接下载，或直接使用本地 zip / rar 补丁包进行安装。" />
                 </StackPanel>
-                
-                
+
                     <Button Grid.Column="1"
                         CornerRadius="12"
                         Padding="7"

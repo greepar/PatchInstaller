@@ -68,7 +68,7 @@ internal static class PatchDownloader
                 }
             };
 
-            using var downloader = new DownloadService(configuration);
+            await using var downloader = new DownloadService(configuration);
 
             downloader.DownloadProgressChanged += (_, e) =>
             {
@@ -146,12 +146,7 @@ internal static class PatchDownloader
     private static string? GetFileNameFromContentDisposition(ContentDispositionHeaderValue? contentDisposition)
     {
         var fileName = contentDisposition?.FileNameStar ?? contentDisposition?.FileName;
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            return null;
-        }
-
-        return fileName.Trim().Trim('"');
+        return string.IsNullOrWhiteSpace(fileName) ? null : fileName.Trim().Trim('"');
     }
 
     private static string? GetFileNameFromUri(Uri? uri)

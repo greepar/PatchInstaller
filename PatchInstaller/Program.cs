@@ -17,7 +17,7 @@ public static class Program
         BuildAvaloniaApp()
             .With(new Win32PlatformOptions
             {
-                RenderingMode = [Win32RenderingMode.AngleEgl],
+                RenderingMode = [Win32RenderingMode.AngleEgl,Win32RenderingMode.Software],
                 DpiAwareness = Win32DpiAwareness.PerMonitorDpiAware
             })
             .StartWithClassicDesktopLifetime(args);

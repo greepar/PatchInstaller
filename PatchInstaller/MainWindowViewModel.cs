@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PatchInstaller.Services;
+using SharpCompress.Archives;
 using SteamLocator = PatchInstaller.Services.SteamLocator;
 
 namespace PatchInstaller;
@@ -22,7 +23,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static readonly string[] SupportedMultipartPatterns = ["*.zip.001", "*.rar.001"];
     private static readonly string DefaultPatchUrl = InstallerBuildConfig.DefaultPatchUrl;
     private const int ParallelDownloadSegments = 12;
-    private const int DownloadRetryCount = 3;
+    private const int DownloadRetryCount = 30;
 
     private CancellationTokenSource? _installCancellationTokenSource;
 
@@ -212,14 +213,36 @@ public partial class MainWindowViewModel : ObservableObject
                 await DownloadPatchAsync(patchUri!, archivePath, _installCancellationTokenSource.Token);
                 LocalPatchPath = archivePath;
             }
-
+            
+            // 验证压缩包是否能被正常读取，避免后续解压时才发现问题
+            try
+            {
+                var archive = ArchiveFactory.OpenArchive(archivePath);
+                foreach (var entry in archive.Entries)
+                {
+                    if (entry.IsDirectory) continue;
+                    await using var stream = await entry.OpenEntryStreamAsync();
+                    var buffer = new byte[8192];
+                    while (await stream.ReadAsync(buffer) > 0)
+                    {
+                        // 只读，不需要处理数据
+                    }
+                }
+            }
+            catch
+            {
+                DownloadProgress = 0;
+                DownloadText = "";
+                DownloadSpeedText = string.Empty;
+                throw new InvalidOperationException("无法读取补丁文件，可能是下载过程中发生了损坏。请重试。");
+            }
+            
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             if (!useLocalPatch)
             {
                 Step2Status = "完成";
             }
-
             StatusText = "正在解压补丁";
             Step3Status = "解压中";
             DownloadProgress = 0;
@@ -280,7 +303,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
-            StatusText = "安装失败";
+            StatusText = "";
             Debug.WriteLine(ex);
             await DialogService.ShowErrorAsync("安装失败", ex.Message);
         }
@@ -322,7 +345,7 @@ public partial class MainWindowViewModel : ObservableObject
                     : string.Empty;
             }),
             cancellationToken);
-
+        
         DownloadProgress = 100;
         DownloadText = "下载完成";
         DownloadSpeedText = string.Empty;

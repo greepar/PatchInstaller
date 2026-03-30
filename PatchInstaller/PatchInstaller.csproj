@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>13</LangVersion>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <PublishSingleFile>true</PublishSingleFile>
         <Version>1.1.0</Version>
         <FileVersion>1.1.0.0</FileVersion>
         <AssemblyVersion>1.1.0.0</AssemblyVersion>
@@ -31,10 +32,11 @@
         <SelfContained>true</SelfContained>
         <PublishTrimmed>true</PublishTrimmed>
         <PublishAot>true</PublishAot>
+        <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
 
     <Import Project="Build\NativeAOT.props" />
-
     <ItemGroup>
         <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
@@ -79,5 +81,9 @@
             <_Parameter1>SteamGameFolderName</_Parameter1>
             <_Parameter2>$(SteamGameFolderName)</_Parameter2>
         </AssemblyAttribute>
+    </ItemGroup>
+    
+    <ItemGroup>
+      <Folder Include="Assets\Fonts\" />
     </ItemGroup>
 </Project>
