@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Downloader;
@@ -22,6 +23,9 @@ internal sealed record DownloadMetadata(
     bool SupportsRanges,
     string? SuggestedFileName);
 
+internal sealed class PatchDownloadException(string message, Exception? innerException = null)
+    : Exception(message, innerException);
+
 internal static class PatchDownloader
 {
     private static readonly HttpClient HttpClient = new()
@@ -37,13 +41,13 @@ internal static class PatchDownloader
         Action<DownloadProgressInfo>? progress,
         CancellationToken cancellationToken)
     {
-        var metadata = await GetMetadataAsync(url, cancellationToken);
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-        DeleteIfExists(destinationPath);
-        DeleteIfExists($"{destinationPath}.download");
-
         try
         {
+            var metadata = await GetMetadataAsync(url, cancellationToken);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            DeleteIfExists(destinationPath);
+            DeleteIfExists($"{destinationPath}.download");
+
             var preferParallelDownload = metadata.TotalBytes is > 0 && parts > 1;
             var configuration = new DownloadConfiguration
             {
@@ -90,12 +94,94 @@ internal static class PatchDownloader
 
             await downloader.DownloadFileTaskAsync(url.ToString(), destinationPath, cancellationToken);
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            DeleteIfExists(destinationPath);
+            DeleteIfExists($"{destinationPath}.download");
+            throw new PatchDownloadException("下载超时或连接被中断，请检查网络后重试。");
+        }
+        catch (Exception ex) when (TryTranslateDownloadException(ex, out var message))
+        {
+            DeleteIfExists(destinationPath);
+            DeleteIfExists($"{destinationPath}.download");
+            if (message != null) throw new PatchDownloadException(message, ex);
+        }
         catch
         {
             DeleteIfExists(destinationPath);
             DeleteIfExists($"{destinationPath}.download");
             throw;
         }
+    }
+
+    private static bool TryTranslateDownloadException(Exception ex, out string? message)
+    {
+        if (ex is PatchDownloadException patchDownloadException)
+        {
+            message = patchDownloadException.Message;
+            return true;
+        }
+
+        if (TryFindException<HttpRequestException>(ex, out var httpRequestException))
+        {
+            if (httpRequestException is { StatusCode: { } statusCode })
+            {
+                message = $"下载失败，服务器返回 HTTP {(int)statusCode} {statusCode}。";
+                return true;
+            }
+
+            if (httpRequestException != null && TryFindException<SocketException>(httpRequestException, out var socketException))
+            {
+                if (socketException != null)
+                    message = socketException.SocketErrorCode switch
+                    {
+                        SocketError.HostNotFound or SocketError.NoData => "下载失败，无法解析服务器地址，请检查网络或下载地址。",
+                        SocketError.ConnectionRefused => "下载失败，服务器拒绝连接，请稍后重试。",
+                        SocketError.TimedOut => "下载失败，连接服务器超时，请检查网络后重试。",
+                        SocketError.NetworkDown or SocketError.NetworkUnreachable => "下载失败，当前网络不可用，请检查网络连接。",
+                        _ => "下载失败，网络连接异常，请检查网络后重试。"
+                    };
+                message = null;
+                return true;
+            }
+
+            message = "下载失败，无法连接到服务器，请检查网络后重试。";
+            return true;
+        }
+
+        if (TryFindException<SocketException>(ex, out var directSocketException))
+        {
+            if (directSocketException != null)
+                message = directSocketException.SocketErrorCode switch
+                {
+                    SocketError.HostNotFound or SocketError.NoData => "下载失败，无法解析服务器地址，请检查网络或下载地址。",
+                    SocketError.ConnectionRefused => "下载失败，服务器拒绝连接，请稍后重试。",
+                    SocketError.TimedOut => "下载失败，连接服务器超时，请检查网络后重试。",
+                    SocketError.NetworkDown or SocketError.NetworkUnreachable => "下载失败，当前网络不可用，请检查网络连接。",
+                    _ => "下载失败，网络连接异常，请检查网络后重试。"
+                };
+            message = null;
+            return true;
+        }
+
+        message = string.Empty;
+        return false;
+    }
+
+    private static bool TryFindException<TException>(Exception exception, out TException? matched)
+        where TException : Exception
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is TException found)
+            {
+                matched = found;
+                return true;
+            }
+        }
+
+        matched = null;
+        return false;
     }
 
     public static async Task<string?> GetSuggestedFileNameAsync(Uri url, CancellationToken cancellationToken)
@@ -171,6 +257,7 @@ internal static class PatchDownloader
         }
         catch
         {
+            //
         }
     }
 }

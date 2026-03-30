@@ -213,7 +213,8 @@ public partial class MainWindowViewModel : ObservableObject
                 await DownloadPatchAsync(patchUri!, archivePath, _installCancellationTokenSource.Token);
                 LocalPatchPath = archivePath;
             }
-            
+            _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
+
             // 验证压缩包是否能被正常读取，避免后续解压时才发现问题
             try
             {
@@ -237,8 +238,6 @@ public partial class MainWindowViewModel : ObservableObject
                 throw new InvalidOperationException("无法读取补丁文件，可能是下载过程中发生了损坏。请重试。");
             }
             
-            _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
-
             if (!useLocalPatch)
             {
                 Step2Status = "完成";
