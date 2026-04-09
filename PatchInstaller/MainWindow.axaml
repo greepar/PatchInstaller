@@ -10,6 +10,7 @@
                    Height="550"
                    CanResize="False"
                    CanMinimize="True"
+                   FontFamily="avares://PatchInstaller/Assets/HarmonyOS_Sans_SC.ttf#鸿蒙黑体 Thin"
                    Title="Patch Installer">
 
     <sukiUi:SukiWindow.Hosts>

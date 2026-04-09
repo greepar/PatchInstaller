@@ -48,7 +48,7 @@ internal static class PatchDownloader
             DeleteIfExists(destinationPath);
             DeleteIfExists($"{destinationPath}.download");
 
-            var preferParallelDownload = metadata.TotalBytes is > 0 && parts > 1;
+            var preferParallelDownload = metadata.SupportsRanges && metadata.TotalBytes is > 0 && parts > 1;
             var configuration = new DownloadConfiguration
             {
                 ChunkCount = preferParallelDownload ? parts : 1,
@@ -93,6 +93,7 @@ internal static class PatchDownloader
             };
 
             await downloader.DownloadFileTaskAsync(url.ToString(), destinationPath, cancellationToken);
+            ValidateDownloadedFile(destinationPath, metadata.TotalBytes);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -188,9 +189,7 @@ internal static class PatchDownloader
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Head, url);
-            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
+            using var response = await SendMetadataRequestAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 return GetFileNameFromUri(url);
@@ -208,9 +207,7 @@ internal static class PatchDownloader
 
     private static async Task<DownloadMetadata> GetMetadataAsync(Uri url, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Head, url);
-        using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
+        using var response = await SendMetadataRequestAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             return new DownloadMetadata(
@@ -222,11 +219,71 @@ internal static class PatchDownloader
 
         return new DownloadMetadata(
             url.ToString(),
-            response.Content.Headers.ContentLength,
-            response.Headers.AcceptRanges.Any(value => string.Equals(value, "bytes", StringComparison.OrdinalIgnoreCase)),
+            GetTotalBytes(response),
+            SupportsRanges(response),
             GetFileNameFromContentDisposition(response.Content.Headers.ContentDisposition)
             ?? GetFileNameFromUri(response.RequestMessage?.RequestUri)
             ?? GetFileNameFromUri(url));
+    }
+
+    private static async Task<HttpResponseMessage> SendMetadataRequestAsync(Uri url, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var headRequest = new HttpRequestMessage(HttpMethod.Head, url);
+            var headResponse = await HttpClient.SendAsync(headRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (headResponse.IsSuccessStatusCode)
+            {
+                return headResponse;
+            }
+
+            if (headResponse.StatusCode != HttpStatusCode.NotImplemented &&
+                headResponse.StatusCode != HttpStatusCode.MethodNotAllowed)
+            {
+                return headResponse;
+            }
+
+            headResponse.Dispose();
+        }
+        catch (HttpRequestException)
+        {
+            // Fall back to a ranged GET for sources that reject HEAD.
+        }
+
+        using var getRequest = new HttpRequestMessage(HttpMethod.Get, url);
+        getRequest.Headers.Range = new RangeHeaderValue(0, 0);
+        return await HttpClient.SendAsync(getRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+    }
+
+    private static long? GetTotalBytes(HttpResponseMessage response)
+    {
+        return response.Content.Headers.ContentRange?.Length
+               ?? response.Content.Headers.ContentLength;
+    }
+
+    private static bool SupportsRanges(HttpResponseMessage response)
+    {
+        if (response.StatusCode == HttpStatusCode.PartialContent || response.Content.Headers.ContentRange is not null)
+        {
+            return true;
+        }
+
+        return response.Headers.AcceptRanges.Any(value => string.Equals(value, "bytes", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void ValidateDownloadedFile(string destinationPath, long? expectedBytes)
+    {
+        if (expectedBytes is not > 0)
+        {
+            return;
+        }
+
+        var actualBytes = new FileInfo(destinationPath).Length;
+        if (actualBytes != expectedBytes.Value)
+        {
+            throw new PatchDownloadException(
+                $"下载文件不完整，预期 {expectedBytes.Value} 字节，实际 {actualBytes} 字节。请重试。");
+        }
     }
 
     private static string? GetFileNameFromContentDisposition(ContentDispositionHeaderValue? contentDisposition)

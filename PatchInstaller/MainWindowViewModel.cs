@@ -9,7 +9,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PatchInstaller.Services;
-using SharpCompress.Archives;
 using SteamLocator = PatchInstaller.Services.SteamLocator;
 
 namespace PatchInstaller;
@@ -23,7 +22,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static readonly string[] SupportedMultipartPatterns = ["*.zip.001", "*.rar.001"];
     private static readonly string DefaultPatchUrl = InstallerBuildConfig.DefaultPatchUrl;
     private const int ParallelDownloadSegments = 12;
-    private const int DownloadRetryCount = 30;
+    private const int DownloadRetryCount = 800;
 
     private CancellationTokenSource? _installCancellationTokenSource;
 
@@ -211,26 +210,11 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 archivePath = temporaryDownloadPath;
                 await DownloadPatchAsync(patchUri!, archivePath, _installCancellationTokenSource.Token);
-                LocalPatchPath = archivePath;
             }
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             // 验证压缩包是否能被正常读取，避免后续解压时才发现问题
-            try
-            {
-                var archive = ArchiveFactory.OpenArchive(archivePath);
-                foreach (var entry in archive.Entries)
-                {
-                    if (entry.IsDirectory) continue;
-                    await using var stream = await entry.OpenEntryStreamAsync();
-                    var buffer = new byte[8192];
-                    while (await stream.ReadAsync(buffer) > 0)
-                    {
-                        // 只读，不需要处理数据
-                    }
-                }
-            }
-            catch
+            if (!ArchiveInstaller.IsArchiveValid(archivePath))
             {
                 DownloadProgress = 0;
                 DownloadText = "";
@@ -277,13 +261,36 @@ public partial class MainWindowViewModel : ObservableObject
                 Step3Status = "已取消";
             }
 
+            ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "安装已停止";
+            DownloadProgress = 0;
             DownloadText = "已取消";
             DownloadSpeedText = string.Empty;
         }
         catch (Exception ex)
         {
+            if (_installCancellationTokenSource?.IsCancellationRequested == true)
+            {
+                if (IsStep2Active)
+                {
+                    Step2Status = "已取消";
+                }
+                else if (IsStep3Active)
+                {
+                    Step3Status = "已取消";
+                }
+
+                ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
+                DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
+                StatusText = "安装已停止";
+                DownloadProgress = 0;
+                DownloadText = "已取消";
+                DownloadSpeedText = string.Empty;
+                Debug.WriteLine(ex);
+                return;
+            }
+
             if (IsPatchAcquisitionFailure(ex, archivePath))
             {
                 Step2Status = "失败";
@@ -301,6 +308,7 @@ public partial class MainWindowViewModel : ObservableObject
                 Step3Status = "失败";
             }
 
+            ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "";
             Debug.WriteLine(ex);
@@ -310,6 +318,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             if (!useLocalPatch)
             {
+                ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
                 DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             }
 
@@ -387,6 +396,19 @@ public partial class MainWindowViewModel : ObservableObject
 
         DeleteIfExists(temporaryPath);
         DeleteIfExists(temporaryPath + ".meta");
+    }
+
+    private void ClearTemporaryPatchSelection(string? temporaryPath, bool useLocalPatch)
+    {
+        if (useLocalPatch || string.IsNullOrWhiteSpace(temporaryPath))
+        {
+            return;
+        }
+
+        if (string.Equals(NormalizePath(LocalPatchPath), NormalizePath(temporaryPath), StringComparison.OrdinalIgnoreCase))
+        {
+            LocalPatchPath = string.Empty;
+        }
     }
 
     private static void CleanupWorkingDirectory(string? workingRoot)
