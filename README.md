@@ -1,6 +1,6 @@
 # PatchInstaller
 
-通用补丁安装器模板，基于 Avalonia + NativeAOT。
+通用补丁安装器模板。
 
 ![demo](demo.webp)
 
