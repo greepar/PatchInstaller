@@ -21,7 +21,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static readonly string[] SupportedPatchExtensions = [".7z", ".zip", ".rar"];
     private static readonly string[] SupportedMultipartPatterns = ["*.zip.001", "*.rar.001"];
     private static readonly string DefaultPatchUrl = InstallerBuildConfig.DefaultPatchUrl;
-    private const int ParallelDownloadSegments = 12;
+    private const int ParallelDownloadSegments = 8;
     private const int DownloadRetryCount = 800;
 
     private CancellationTokenSource? _installCancellationTokenSource;
@@ -61,6 +61,7 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsStep3Completed => string.Equals(Step3Status, "完成", StringComparison.Ordinal);
 
     public string ProductName => InstallerBuildConfig.ProductName;
+    public string DisplayVersion => InstallerBuildConfig.DisplayVersion;
 
     public MainWindowViewModel()
     {
@@ -382,9 +383,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private static string EnsureSupportedPatchFileName(string fileName)
     {
-        return ArchiveInstaller.IsSupportedArchivePath(fileName)
-            ? fileName
-            : fileName + ".7z";
+        return fileName;
     }
 
     private static void DeleteTemporaryDownloadArtifacts(string? temporaryPath)

@@ -12,9 +12,9 @@ using SharpCompress.Readers;
 
 namespace PatchInstaller.Services;
 
-internal static class ArchiveInstaller
+internal static partial class ArchiveInstaller
 {
-    private static readonly Regex MultipartArchiveRegex = new(@"\.(zip|rar)\.(\d{3})$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex MultipartArchiveRegex = MyRegex();
 
     public static bool IsArchiveValid(string archivePath)
     {
@@ -242,7 +242,62 @@ internal static class ArchiveInstaller
         }
 
         archiveExtension = extension.ToLowerInvariant();
-        return archiveExtension is ".7z" or ".zip" or ".rar";
+        if (archiveExtension is ".7z" or ".zip" or ".rar")
+        {
+            return true;
+        }
+
+        if (TryGetArchiveExtensionFromSignature(archivePath, out archiveExtension))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetArchiveExtensionFromSignature(string archivePath, out string archiveExtension)
+    {
+        archiveExtension = string.Empty;
+
+        try
+        {
+            using var stream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            Span<byte> header = stackalloc byte[8];
+            var bytesRead = stream.Read(header);
+
+            if (bytesRead >= 6 &&
+                header[..6].SequenceEqual(new byte[] { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C }))
+            {
+                archiveExtension = ".7z";
+                return true;
+            }
+
+            if (bytesRead >= 8 &&
+                header[..8].SequenceEqual(new byte[] { 0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00, 0x00 }) ||
+                bytesRead >= 8 &&
+                header[..8].SequenceEqual(new byte[] { 0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00 }))
+            {
+                archiveExtension = ".rar";
+                return true;
+            }
+
+            if (bytesRead >= 4 &&
+                header[..4].SequenceEqual(new byte[] { 0x50, 0x4B, 0x03, 0x04 }) ||
+                bytesRead >= 4 &&
+                header[..4].SequenceEqual(new byte[] { 0x50, 0x4B, 0x05, 0x06 }) ||
+                bytesRead >= 4 &&
+                header[..4].SequenceEqual(new byte[] { 0x50, 0x4B, 0x07, 0x08 }))
+            {
+                archiveExtension = ".zip";
+                return true;
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return false;
     }
 
     private static bool TryGetMultipartSegments(string archivePath, out string[] segments)
@@ -320,4 +375,7 @@ internal static class ArchiveInstaller
             }
         }
     }
+
+    [GeneratedRegex(@"\.(zip|rar)\.(\d{3})$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex MyRegex();
 }

@@ -209,7 +209,7 @@
             <TextBlock Grid.Row="3" Margin="0 -3 0 0"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Top"
-                       Text="© greepar · v1.1"/>
+                       Text="{Binding DisplayVersion, StringFormat='© greepar · v{0}'}"/>
 
         </Grid>
     </Border>

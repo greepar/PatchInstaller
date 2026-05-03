@@ -10,10 +10,15 @@ namespace PatchInstaller;
 internal static class InstallerBuildConfig
 {
     private static readonly RuntimeConfig? Runtime = LoadRuntimeConfig();
+    private static readonly Assembly Assembly = typeof(InstallerBuildConfig).Assembly;
 
     public static string ProductName => GetValue(
         [Runtime?.ProductName, GetMetadata("InstallerName")],
-        typeof(InstallerBuildConfig).Assembly.GetName().Name ?? "PatchInstaller");
+        Assembly.GetName().Name ?? "PatchInstaller");
+
+    public static string DisplayVersion => GetInformationalVersion()
+        ?? Assembly.GetName().Version?.ToString(3)
+        ?? "1.0.0";
 
     public static string DefaultPatchUrl => GetValue(
         [Runtime?.DefaultPatchUrl, GetMetadata("DefaultPatchUrl")],
@@ -42,11 +47,42 @@ internal static class InstallerBuildConfig
 
     private static string? GetMetadata(string key)
     {
-        var assembly = typeof(InstallerBuildConfig).Assembly;
-        return assembly
+        return Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(attribute => string.Equals(attribute.Key, key, StringComparison.Ordinal))?
             .Value;
+    }
+
+    private static string? GetInformationalVersion()
+    {
+        var informationalVersion = Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion?
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            return informationalVersion;
+        }
+
+        var suffixSeparatorIndex = informationalVersion.IndexOf('+', StringComparison.Ordinal);
+        if (suffixSeparatorIndex < 0)
+        {
+            return informationalVersion;
+        }
+
+        var version = informationalVersion[..suffixSeparatorIndex];
+        var revision = informationalVersion[(suffixSeparatorIndex + 1)..].Trim();
+        if (string.IsNullOrWhiteSpace(revision))
+        {
+            return version;
+        }
+
+        var shortRevision = revision.Length > 7
+            ? revision[..7]
+            : revision;
+
+        return $"{version}+{shortRevision}";
     }
 
     private static RuntimeConfig? LoadRuntimeConfig()
