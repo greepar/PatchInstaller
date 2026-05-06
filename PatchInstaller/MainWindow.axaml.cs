@@ -1,9 +1,7 @@
-using System;
 using System.Diagnostics;
 using System.Linq;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using PatchInstaller;
 using SukiUI.Controls;
 using SukiUI.Dialogs;
 
@@ -12,13 +10,14 @@ namespace PatchInstaller;
 public partial class MainWindow : SukiWindow
 {
     private const string ProjectGithubUrl = "https://github.com/greepar/PatchInstaller";
-    public static ISukiDialogManager DialogManager { get; } = new SukiDialogManager();
 
     public MainWindow()
     {
         InitializeComponent();
         DialogHost.Manager = DialogManager;
     }
+
+    public static ISukiDialogManager DialogManager { get; } = new SukiDialogManager();
 
     private void OpenProjectGithub(object? sender, RoutedEventArgs e)
     {
@@ -31,10 +30,7 @@ public partial class MainWindow : SukiWindow
 
     private async void ManualLocateGamePath(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
-        {
-            return;
-        }
+        if (DataContext is not MainWindowViewModel viewModel) return;
 
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
@@ -43,10 +39,7 @@ public partial class MainWindow : SukiWindow
         });
 
         var folder = folders.FirstOrDefault();
-        if (folder is null)
-        {
-            return;
-        }
+        if (folder is null) return;
 
         viewModel.GamePath = folder.TryGetLocalPath() ?? folder.Path.LocalPath;
         viewModel.StatusText = "已手动选择游戏目录";
@@ -55,10 +48,7 @@ public partial class MainWindow : SukiWindow
 
     private async void ManualSelectPatch(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
-        {
-            return;
-        }
+        if (DataContext is not MainWindowViewModel viewModel) return;
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -74,10 +64,7 @@ public partial class MainWindow : SukiWindow
         });
 
         var file = files.FirstOrDefault();
-        if (file is null)
-        {
-            return;
-        }
+        if (file is null) return;
 
         viewModel.LocalPatchPath = file.TryGetLocalPath() ?? file.Path.LocalPath;
         viewModel.SelectedPatchSource = MainWindowViewModel.LocalSource;

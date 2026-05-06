@@ -6,10 +6,10 @@
         <LangVersion>13</LangVersion>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <PublishSingleFile>true</PublishSingleFile>
-        <Version>1.1.2</Version>
-        <FileVersion>1.1.2.0</FileVersion>
-        <AssemblyVersion>1.1.2.0</AssemblyVersion>
-        <InformationalVersion>1.1.2</InformationalVersion>
+        <Version>1.2.0</Version>
+        <FileVersion>1.2.0.0</FileVersion>
+        <AssemblyVersion>1.2.0.0</AssemblyVersion>
+        <InformationalVersion>1.2.0</InformationalVersion>
         <Authors>greepar</Authors>
         <Company>greepar</Company>
         <Product>$(InstallerProductName)</Product>
@@ -34,9 +34,10 @@
         <PublishAot>true</PublishAot>
         <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+        <PublishReadyToRun>false</PublishReadyToRun>
     </PropertyGroup>
 
-    <Import Project="Build\NativeAOT.props" />
+    <Import Project="Build\NativeAOT.props" Condition="'$(UseNativeAotProps)' == 'true'" />
     <ItemGroup>
         <AvaloniaResource Include="Assets\**" />
     </ItemGroup>

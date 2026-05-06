@@ -42,20 +42,49 @@ jobs:
         with:
           arch: x64
 
-      - name: Publish
+      - name: Publish AOT
         shell: pwsh
-        run: dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64 -o .\artifacts\publish
+        run: dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64 -p:UseNativeAotProps=true -o .\artifacts\publish-aot
 
-      - name: Package
+      - name: Publish DotNet Compression
         shell: pwsh
         run: |
-          $publishDir = ".\artifacts\publish"
+          dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64 `
+            -p:UseNativeAotProps=false `
+            -p:PublishAot=false `
+            -p:EnableCompressionInSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:PublishTrimmed=true `
+            -p:PublishReadyToRun=false `
+            -o .\artifacts\publish-dotnet-compression
+
+      - name: Package AOT
+        shell: pwsh
+        run: |
+          $publishDir = ".\artifacts\publish-aot"
+          $exeFile = Get-ChildItem -Path $publishDir -Filter "*.exe" | Select-Object -First 1
+          $pdbFile = Get-ChildItem -Path $publishDir -Filter "*.pdb" | Select-Object -First 1
+
+          if ($null -eq $exeFile) {
+            throw "No .exe file found in AOT publish output."
+          }
+
+          7z a -y -mx9 PatchInstaller.AOT.7z $exeFile.FullName
+
+          if ($null -ne $pdbFile) {
+            7z a -y -mx9 PatchInstaller.AOT.PDB.7z $pdbFile.FullName
+          }
+
+      - name: Package DotNet Compression
+        shell: pwsh
+        run: |
+          $publishDir = ".\artifacts\publish-dotnet-compression"
           $jsonExamplePath = ".\PatchInstaller\PatchInstaller.json.example"
           $exeFile = Get-ChildItem -Path $publishDir -Filter "*.exe" | Select-Object -First 1
           $pdbFile = Get-ChildItem -Path $publishDir -Filter "*.pdb" | Select-Object -First 1
 
           if ($null -eq $exeFile) {
-            throw "No .exe file found in publish output."
+            throw "No .exe file found in DotNet Compression publish output."
           }
 
           if (-not (Test-Path $jsonExamplePath)) {
@@ -65,14 +94,14 @@ jobs:
           $exePath = $exeFile.FullName
           $pdbPath = if ($null -ne $pdbFile) { $pdbFile.FullName } else { $null }
 
-          7z a -y -mx9 PatchInstaller.7z $exePath
+          7z a -y -mx9 PatchInstaller.DotNetCompression.7z $exePath
 
           if ($null -ne $pdbPath) {
-            7z a -y -mx9 PatchInstaller.PDB.7z $pdbPath
+            7z a -y -mx9 PatchInstaller.DotNetCompression.PDB.7z $pdbPath
           }
 
-          .\upx.exe --ultra-brute --overlay=strip $exePath -o .\PatchInstaller.UPX.exe
-          7z a -y -mx9 PatchInstaller.UPX.7z .\PatchInstaller.UPX.exe
+          .\upx.exe --ultra-brute --overlay=strip $exePath -o .\PatchInstaller.DotNetCompression.UPX.exe
+          7z a -y -mx9 PatchInstaller.DotNetCompression.UPX.7z .\PatchInstaller.DotNetCompression.UPX.exe
 
           Copy-Item $jsonExamplePath .\PatchInstaller.json -Force
 
@@ -84,7 +113,9 @@ jobs:
           overwrite_files: true
           generate_release_notes: true
           files: |
-            PatchInstaller.7z
-            PatchInstaller.UPX.7z
-            PatchInstaller.PDB.7z
+            PatchInstaller.AOT.7z
+            PatchInstaller.AOT.PDB.7z
+            PatchInstaller.DotNetCompression.7z
+            PatchInstaller.DotNetCompression.UPX.7z
+            PatchInstaller.DotNetCompression.PDB.7z
             PatchInstaller.json

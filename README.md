@@ -19,7 +19,7 @@
 <Project>
   <PropertyGroup>
     <InstallerName>PatchInstaller</InstallerName>
-    <DefaultPatchUrl>https://patch.qwq.lu/kiss</DefaultPatchUrl>
+    <DefaultPatchUrl>主源|https://patch-1.example.com/latest.zip;镜像源|https://patch-2.example.com/latest.zip</DefaultPatchUrl>
     <PatchFilePrefix>KissMeEveryday</PatchFilePrefix>
     <SteamGameFolderName>Mainichikisushite</SteamGameFolderName>
   </PropertyGroup>
@@ -28,7 +28,8 @@
 
 字段说明：
 - `InstallerName`：界面主标题
-- `DefaultPatchUrl`：默认补丁下载链接，可留空
+- `DefaultPatchUrl`：默认补丁下载链接，可留空；多个源可用 `;` 分隔，每项可写成 `名称|链接`
+  为空时界面不显示“下载源”选项，只保留可手动输入的“下载链接”
 - `PatchFilePrefix`：自动识别本地补丁时的文件名前缀(适合自带补丁压缩包)
 - `SteamGameFolderName`：Steam 游戏目录名，用于自动定位
 
@@ -50,7 +51,7 @@ PatchInstaller.json
 ```json
 {
   "productName": "PatchInstaller",
-  "defaultPatchUrl": "https://example.com/patch/latest.zip",
+  "defaultPatchUrl": "主源|https://example.com/patch/latest.zip;镜像源|https://mirror.example.com/patch/latest.zip",
   "patchFilePrefix": "Patch",
   "steamGameFolderName": "YourSteamGameFolder"
 }
@@ -58,7 +59,8 @@ PatchInstaller.json
 
 支持字段：
 - `productName`：标题与产品名
-- `defaultPatchUrl`：默认下载链接或直链
+- `defaultPatchUrl`：默认下载链接或直链；多个源可用 `;` 分隔，每项可写成 `名称|链接`
+  为空时界面不显示“下载源”选项，只保留可手动输入的“下载链接”
 - `patchFilePrefix`：自动识别本地补丁时的前缀
 - `steamGameFolderName`：Steam 游戏目录名
 
@@ -140,6 +142,28 @@ dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64
 ### 默认链接下载
 
 如果配置了默认链接，程序可以直接从默认地址下载并安装。
+
+如果只配置了 1 个内置链接：
+- 界面会直接显示这个链接
+- 这个输入框为只读，不能修改
+- 如果需要手动填写其他地址，请切换到“下载链接”
+
+如果配置了多个链接：
+- 可用 `;` 分隔
+- 每项既可以写纯链接，也可以写成 `名称|链接`
+- 界面会显示“下载源”选项，并横向显示源选择器
+- 会额外提供一个默认选中的“自动”选项
+- 选择“自动”时，会按你填写的顺序依次尝试下载
+- 第一个源失败后，会自动 fallback 到下一个源
+- 下载状态会显示当前正在使用的源名称
+
+示例：
+`主源|https://a.com/patch.zip;Cloudflare源|https://b.com/patch.zip;iCloud源|https://c.com/patch.zip`
+
+如果 `DefaultPatchUrl` 为空：
+- 界面不会显示“下载源”
+- 下拉框里只保留“下载链接”和“本地补丁”
+- “下载链接”就是普通可编辑输入框
 
 ### 临时文件
 

@@ -1,6 +1,5 @@
 <sukiUi:SukiWindow xmlns="https://github.com/avaloniaui"
                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                   xmlns:viewModels="clr-namespace:PatchInstaller"
                    xmlns:sukiUi="clr-namespace:SukiUI.Controls;assembly=SukiUI"
                    xmlns:patchInstaller="clr-namespace:PatchInstaller"
                    x:Class="PatchInstaller.MainWindow"
@@ -21,17 +20,17 @@
         <patchInstaller:MainWindowViewModel />
     </Design.DataContext>
 
-    <Border Padding="24">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="16">
-            <Grid  ColumnDefinitions="*,Auto" ColumnSpacing="16">
+    <Border Padding="24 24 24 12">
+        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="16">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Grid.Column="0" Spacing="6">
                     <TextBlock FontSize="28"
                                FontWeight="Bold"
                                Text="{Binding ProductName}" />
-                    <TextBlock Text="支持从链接下载，或直接使用本地 zip / rar 补丁包进行安装。" />
+                    <TextBlock Text="从链接下载，或直接使用本地 zip / rar 补丁包进行安装" />
                 </StackPanel>
 
-                    <Button Grid.Column="1"
+                <Button Grid.Column="1"
                         CornerRadius="12"
                         Padding="7"
                         HorizontalAlignment="Right"
@@ -61,7 +60,6 @@
             <Border Grid.Row="1" Padding="18" CornerRadius="14">
                 <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
                     <Grid Grid.Row="0"
-                          Height="40"
                           ColumnDefinitions="Auto,*" ColumnSpacing="0">
                         <ComboBox Grid.Column="0"
                                   Margin="-10 0 0 0"
@@ -70,14 +68,56 @@
                                   ItemsSource="{Binding PatchSourceOptions}" />
 
                         <Grid Grid.Column="1"
-                              IsVisible="{Binding UseDownloadSource}"
+                              IsVisible="{Binding UseRemoteSource}"
                               ColumnDefinitions="*,130"
                               ColumnSpacing="12">
-                            <TextBox Grid.Column="0"
-                                     IsEnabled="{Binding CanInstall}"
-                                     Watermark="请输入下载链接"
-                                     Text="{Binding PatchUrl}" 
-                                     />
+                            <Grid Grid.Column="0">
+                                <TextBox IsVisible="{Binding ShowDownloadUrlInput}"
+                                         IsEnabled="{Binding CanInstall}"
+                                         Watermark="请输入下载链接"
+                                         Text="{Binding PatchUrl}" />
+                                <Border IsVisible="{Binding ShowBuiltInSourceSelector}"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Padding="16,10"
+                                        CornerRadius="14"
+                                        BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal" Spacing="18">
+                                        <RadioButton GroupName="BuiltInPatchSources"
+                                                     VerticalAlignment="Center"
+                                                     IsChecked="{Binding IsAutoBuiltInSourceSelected}">
+                                            <TextBlock FontWeight="SemiBold"
+                                                       Text="自动" />
+                                        </RadioButton>
+                                        <ItemsControl ItemsSource="{Binding BuiltInDownloadOptions}"
+                                                      VerticalAlignment="Center">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="18" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <RadioButton GroupName="BuiltInPatchSources"
+                                                                 VerticalAlignment="Center"
+                                                                 Margin="0">
+                                                        <RadioButton.IsChecked>
+                                                            <Binding Path="IsSelected" />
+                                                        </RadioButton.IsChecked>
+                                                        <ToolTip.Tip>
+                                                            <TextBlock MaxWidth="420"
+                                                                       TextWrapping="Wrap"
+                                                                       Text="{Binding Url}" />
+                                                        </ToolTip.Tip>
+                                                        <TextBlock FontWeight="SemiBold"
+                                                                   Text="{Binding Name}" />
+                                                    </RadioButton>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                             <Button Grid.Column="1"
                                     Width="130"
                                     IsEnabled="{Binding CanInstall}"
@@ -94,14 +134,14 @@
                                      Watermark="请选择 zip / rar / 7z"
                                      Text="{Binding LocalPatchPath}" />
                             <Button Grid.Column="1"
-                                    
+
                                     Width="130"
                                     IsEnabled="{Binding CanInstall}"
                                     Click="ManualSelectPatch"
                                     Content="重新选择补丁" />
                             <Button Grid.Column="2"
                                     IsVisible="{Binding ShowLocalInstallButton}"
-                                    
+
                                     Width="130"
                                     IsEnabled="{Binding CanInstall}"
                                     Command="{Binding InstallCommand}"
@@ -112,14 +152,14 @@
                     <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                         <TextBlock Grid.Column="0"
                                    VerticalAlignment="Center"
-                            
+
                                    Text="游戏目录" />
                         <TextBox Grid.Column="1"
                                  Watermark="请选择游戏安装目录"
                                  IsEnabled="{Binding CanInstall}"
                                  Text="{Binding GamePath}" />
                         <Button Grid.Column="2"
-                                
+
                                 Width="130"
                                 IsEnabled="{Binding CanInstall}"
                                 Click="ManualLocateGamePath"
@@ -128,7 +168,7 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Row="2" Padding="18" CornerRadius="14">
+            <Border Grid.Row="2" Padding="18,18,18,32" CornerRadius="14">
                 <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
                         <TextBlock Grid.Column="0"
@@ -142,13 +182,13 @@
                         <Button Grid.Column="2"
                                 IsVisible="{Binding CanCancelInstall}"
                                 Command="{Binding CancelInstallCommand}"
-                                Content="取消下载"/>
+                                Content="取消下载" />
                         <Button Grid.Column="3"
                                 Width="1" MinWidth="1"
                                 IsVisible="True"
                                 Opacity="0"
                                 IsHitTestVisible="False"
-                                Content="占位"/>
+                                Content="占位" />
                     </Grid>
 
                     <ProgressBar Grid.Row="1"
@@ -203,14 +243,14 @@
                             </StackPanel>
                         </sukiUi:GlassCard>
                     </Grid>
+
                 </Grid>
             </Border>
-            
-            <TextBlock Grid.Row="3" Margin="0 -3 0 0"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Top"
-                       Text="{Binding DisplayVersion, StringFormat='© greepar · v{0}'}"/>
 
+            <TextBlock Grid.Row="2" Margin="0 0 0 0"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Bottom"
+                       Text="{Binding DisplayVersion, StringFormat='© greepar · v{0}'}" />
         </Grid>
     </Border>
 </sukiUi:SukiWindow>
