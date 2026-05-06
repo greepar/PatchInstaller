@@ -75,6 +75,9 @@ jobs:
             7z a -y -mx9 PatchInstaller.AOT.PDB.7z $pdbFile.FullName
           }
 
+          .\upx.exe --ultra-brute --overlay=strip $exeFile.FullName -o .\PatchInstaller.AOT.UPX.exe
+          7z a -y -mx9 PatchInstaller.AOT.UPX.7z .\PatchInstaller.AOT.UPX.exe
+
       - name: Package DotNet Compression
         shell: pwsh
         run: |
@@ -100,9 +103,6 @@ jobs:
             7z a -y -mx9 PatchInstaller.DotNetCompression.PDB.7z $pdbPath
           }
 
-          .\upx.exe --ultra-brute --overlay=strip $exePath -o .\PatchInstaller.DotNetCompression.UPX.exe
-          7z a -y -mx9 PatchInstaller.DotNetCompression.UPX.7z .\PatchInstaller.DotNetCompression.UPX.exe
-
           Copy-Item $jsonExamplePath .\PatchInstaller.json -Force
 
       - name: Release artifacts
@@ -115,7 +115,7 @@ jobs:
           files: |
             PatchInstaller.AOT.7z
             PatchInstaller.AOT.PDB.7z
+            PatchInstaller.AOT.UPX.7z
             PatchInstaller.DotNetCompression.7z
-            PatchInstaller.DotNetCompression.UPX.7z
             PatchInstaller.DotNetCompression.PDB.7z
             PatchInstaller.json
