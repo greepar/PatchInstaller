@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -24,11 +25,18 @@ internal sealed record DownloadMetadata(
     bool SupportsRanges,
     string? SuggestedFileName);
 
+internal sealed record SourceProbeResult(
+    Uri EffectiveUri,
+    long SampleBytes,
+    double BytesPerSecond);
+
 internal sealed class PatchDownloadException(string message, Exception? innerException = null)
     : Exception(message, innerException);
 
 internal static class PatchDownloader
 {
+    private const int ProbeSampleBytes = 20 * 1024 * 1024;
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(8);
     private static readonly HttpClient HttpClient = new()
     {
         Timeout = Timeout.InfiniteTimeSpan
@@ -229,6 +237,64 @@ internal static class PatchDownloader
         catch
         {
             return GetFileNameFromUri(url);
+        }
+    }
+
+    public static async Task<SourceProbeResult?> ProbeSourceAsync(Uri url, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var probeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            probeCancellationTokenSource.CancelAfter(ProbeTimeout);
+            var probeCancellationToken = probeCancellationTokenSource.Token;
+
+            using var resolvedResponse = await SendMetadataRequestAsync(url, probeCancellationToken);
+            var effectiveUri = resolvedResponse.RequestMessage?.RequestUri ?? url;
+
+            using var probeRequest = new HttpRequestMessage(HttpMethod.Get, effectiveUri);
+            probeRequest.Headers.Range = new RangeHeaderValue(0, ProbeSampleBytes - 1);
+            var stopwatch = Stopwatch.StartNew();
+            using var response =
+                await HttpClient.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCancellationToken);
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.PartialContent)
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(probeCancellationToken);
+            var buffer = new byte[64 * 1024];
+            long totalRead = 0;
+
+            while (totalRead < ProbeSampleBytes)
+            {
+                var remaining = (int)Math.Min(buffer.Length, ProbeSampleBytes - totalRead);
+                var bytesRead = await stream.ReadAsync(buffer.AsMemory(0, remaining), probeCancellationToken);
+                if (bytesRead <= 0)
+                {
+                    break;
+                }
+
+                totalRead += bytesRead;
+            }
+
+            stopwatch.Stop();
+            if (totalRead <= 0 || stopwatch.Elapsed.TotalSeconds <= 0)
+            {
+                return null;
+            }
+
+            return new SourceProbeResult(
+                response.RequestMessage?.RequestUri ?? effectiveUri,
+                totalRead,
+                totalRead / stopwatch.Elapsed.TotalSeconds);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch
+        {
+            return null;
         }
     }
 

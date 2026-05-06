@@ -82,7 +82,7 @@
                                         Padding="16,10"
                                         CornerRadius="14"
                                         BorderThickness="1">
-                                    <StackPanel Orientation="Horizontal" Spacing="18">
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
                                         <RadioButton GroupName="BuiltInPatchSources"
                                                      VerticalAlignment="Center"
                                                      IsChecked="{Binding IsAutoBuiltInSourceSelected}">
@@ -93,7 +93,7 @@
                                                       VerticalAlignment="Center">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal" Spacing="18" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="12" />
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
@@ -105,9 +105,13 @@
                                                             <Binding Path="IsSelected" />
                                                         </RadioButton.IsChecked>
                                                         <ToolTip.Tip>
-                                                            <TextBlock MaxWidth="420"
-                                                                       TextWrapping="Wrap"
-                                                                       Text="{Binding Url}" />
+                                                            <StackPanel MaxWidth="420" Spacing="4">
+                                                                <TextBlock TextWrapping="Wrap"
+                                                                           Text="{Binding ProbeTooltip}" />
+                                                                <TextBlock Opacity="0.72"
+                                                                           TextWrapping="Wrap"
+                                                                           Text="{Binding ProbeTooltipStatus}" />
+                                                            </StackPanel>
                                                         </ToolTip.Tip>
                                                         <TextBlock FontWeight="SemiBold"
                                                                    Text="{Binding Name}" />

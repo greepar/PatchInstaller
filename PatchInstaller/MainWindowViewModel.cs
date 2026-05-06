@@ -35,6 +35,8 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _gamePath = string.Empty;
 
     private CancellationTokenSource? _installCancellationTokenSource;
+    private readonly CancellationTokenSource _sourceProbeCancellationTokenSource = new();
+    private Task? _sourceProbeTask;
     [ObservableProperty] private bool _isAutoBuiltInSourceSelected;
     [ObservableProperty] private bool _isBusy;
 
@@ -88,6 +90,8 @@ public partial class MainWindowViewModel : ObservableObject
             LocalPatchPath = autoPatch;
             SelectedPatchSource = LocalSource;
         }
+
+        if (BuiltInDownloadOptions.Count > 0) _sourceProbeTask = ProbeBuiltInSourcesAsync();
     }
 
     public ObservableCollection<string> PatchSourceOptions { get; } = [];
@@ -210,6 +214,14 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 StatusText = "请先选择本地补丁";
                 return;
+            }
+
+            if (UseDownloadSource && IsAutoBuiltInSourceSelected && _sourceProbeTask is not null && !_sourceProbeTask.IsCompleted)
+            {
+                StatusText = "正在测速中";
+                DownloadText = "正在测速中";
+                DownloadSpeedText = string.Empty;
+                await _sourceProbeTask;
             }
 
             patchCandidates = GetEffectivePatchCandidates();
@@ -349,7 +361,7 @@ public partial class MainWindowViewModel : ObservableObject
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "";
             Debug.WriteLine(ex);
-            await DialogService.ShowErrorAsync("安装失败", ex.Message);
+            await DialogService.ShowErrorAsync("安装失败", GetDisplayErrorMessage(ex));
         }
         finally
         {
@@ -403,10 +415,30 @@ public partial class MainWindowViewModel : ObservableObject
                     }),
                     cancellationToken);
 
-                DownloadProgress = 100;
-                DownloadText = $"已从 {sourceLabel} 下载完成";
-                DownloadSpeedText = string.Empty;
-                return;
+                if (ArchiveInstaller.IsArchiveValid(downloadPath))
+                {
+                    DownloadProgress = 100;
+                    DownloadText = $"已从 {sourceLabel} 下载完成";
+                    DownloadSpeedText = string.Empty;
+                    return;
+                }
+
+                lastError = new InvalidOperationException($"从 {sourceLabel} 下载的补丁文件无法通过校验。");
+                DeleteTemporaryDownloadArtifacts(downloadPath);
+
+                if (index < patchCandidates.Count - 1)
+                {
+                    DownloadProgress = 0;
+                    var nextCandidate = patchCandidates[index + 1];
+                    var nextLabel = string.IsNullOrWhiteSpace(nextCandidate.Name)
+                        ? nextCandidate.Uri.Host
+                        : nextCandidate.Name;
+                    DownloadText = $"{sourceLabel} 下载完成但文件校验失败，正在尝试 {nextLabel}";
+                    DownloadSpeedText = string.Empty;
+                    continue;
+                }
+
+                throw lastError;
             }
             catch (OperationCanceledException)
             {
@@ -443,9 +475,11 @@ public partial class MainWindowViewModel : ObservableObject
         if (HasMultipleBuiltInPatchUrls)
         {
             if (IsAutoBuiltInSourceSelected)
-                return BuiltInPatchSources
-                    .GroupBy(source => source.Url, StringComparer.Ordinal)
-                    .Select(group => new DownloadCandidate(group.First().Name, new Uri(group.Key, UriKind.Absolute)))
+                return BuiltInDownloadOptions
+                    .Select((option, index) => new { option, index })
+                    .OrderByDescending(item => item.option.SampleBytesPerSecond ?? 0d)
+                    .ThenBy(item => item.index)
+                    .Select(item => new DownloadCandidate(item.option.Name, new Uri(item.option.Url, UriKind.Absolute)))
                     .ToArray();
 
             var selectedSource = BuiltInPatchSources.FirstOrDefault(source =>
@@ -517,6 +551,35 @@ public partial class MainWindowViewModel : ObservableObject
 
         uri = null!;
         return false;
+    }
+
+    private async Task ProbeBuiltInSourcesAsync()
+    {
+        var probeTasks = BuiltInDownloadOptions.Select(async option =>
+        {
+            var probeResult =
+                await PatchDownloader.ProbeSourceAsync(new Uri(option.Url, UriKind.Absolute), _sourceProbeCancellationTokenSource.Token);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (probeResult is null)
+                {
+                    option.SetProbeFailed();
+                    return;
+                }
+
+                option.SetProbeResult(probeResult.EffectiveUri.ToString(), probeResult.SampleBytes, probeResult.BytesPerSecond);
+            });
+        });
+
+        try
+        {
+            await Task.WhenAll(probeTasks);
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored
+        }
     }
 
     private static string GetTemporaryDownloadFileName(string? suggestedFileName, Uri patchUri)
@@ -709,6 +772,17 @@ public partial class MainWindowViewModel : ObservableObject
             StringComparison.OrdinalIgnoreCase);
     }
 
+    private static string GetDisplayErrorMessage(Exception ex)
+    {
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+                return current.Message;
+        }
+
+        return "安装失败，未能获取到具体错误信息。请重试。";
+    }
+
     private void PrepareWorkingDirectory(string workingRoot, string extractPath)
     {
         Directory.CreateDirectory(workingRoot);
@@ -725,9 +799,19 @@ public partial class MainWindowViewModel : ObservableObject
     public partial class BuiltInPatchSourceOption(MainWindowViewModel owner, string name, string url) : ObservableObject
     {
         [ObservableProperty] private bool _isSelected;
+        private long? _sampleBytes;
+        private double? _sampleBytesPerSecond;
+        private bool _isProbeCompleted;
 
         public string Name { get; } = name;
         public string Url { get; } = url;
+        public double? SampleBytesPerSecond => _sampleBytesPerSecond;
+        public string ProbeTooltip => Url;
+        public string ProbeTooltipStatus => !_isProbeCompleted
+            ? "测速中..."
+            : _sampleBytesPerSecond is > 0
+                ? $"测速: {FormatFullSpeed(_sampleBytesPerSecond.Value)} / 采样 {FormatBytes(_sampleBytes ?? 0)}"
+                : "测速失败";
 
         partial void OnIsSelectedChanged(bool value)
         {
@@ -739,6 +823,37 @@ public partial class MainWindowViewModel : ObservableObject
         public void SetSelected(bool value)
         {
             if (IsSelected != value) IsSelected = value;
+        }
+
+        public void SetProbeResult(string effectiveUrl, long sampleBytes, double sampleBytesPerSecond)
+        {
+            _sampleBytes = sampleBytes;
+            _sampleBytesPerSecond = sampleBytesPerSecond;
+            _isProbeCompleted = true;
+            OnPropertyChanged(nameof(SampleBytesPerSecond));
+            OnPropertyChanged(nameof(ProbeTooltip));
+            OnPropertyChanged(nameof(ProbeTooltipStatus));
+        }
+
+        public void SetProbeFailed()
+        {
+            _sampleBytes = null;
+            _sampleBytesPerSecond = null;
+            _isProbeCompleted = true;
+            OnPropertyChanged(nameof(SampleBytesPerSecond));
+            OnPropertyChanged(nameof(ProbeTooltip));
+            OnPropertyChanged(nameof(ProbeTooltipStatus));
+        }
+
+        private static string FormatFullSpeed(double bytesPerSecond)
+        {
+            if (bytesPerSecond >= 1024 * 1024)
+                return $"{bytesPerSecond / (1024 * 1024):0.00} MB/s";
+
+            if (bytesPerSecond >= 1024)
+                return $"{bytesPerSecond / 1024:0.00} KB/s";
+
+            return $"{bytesPerSecond:0.00} B/s";
         }
     }
 }

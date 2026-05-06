@@ -6,10 +6,10 @@
         <LangVersion>13</LangVersion>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <PublishSingleFile>true</PublishSingleFile>
-        <Version>1.2.0</Version>
-        <FileVersion>1.2.0.0</FileVersion>
-        <AssemblyVersion>1.2.0.0</AssemblyVersion>
-        <InformationalVersion>1.2.0</InformationalVersion>
+        <Version>1.2.1</Version>
+        <FileVersion>1.2.1.0</FileVersion>
+        <AssemblyVersion>1.2.1.0</AssemblyVersion>
+        <InformationalVersion>1.2.1</InformationalVersion>
         <Authors>greepar</Authors>
         <Company>greepar</Company>
         <Product>$(InstallerProductName)</Product>
@@ -31,9 +31,9 @@
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <SelfContained>true</SelfContained>
         <PublishTrimmed>true</PublishTrimmed>
-        <PublishAot>true</PublishAot>
-        <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-        <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+        <PublishAot>false</PublishAot>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <PublishReadyToRun>false</PublishReadyToRun>
     </PropertyGroup>
 
