@@ -35,6 +35,7 @@
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <PublishReadyToRun>false</PublishReadyToRun>
+        <UseNativeAotProps>false</UseNativeAotProps>
     </PropertyGroup>
 
     <Import Project="Build\NativeAOT.props" Condition="'$(UseNativeAotProps)' == 'true'" />

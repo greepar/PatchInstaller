@@ -98,9 +98,10 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <RadioButton GroupName="BuiltInPatchSources"
-                                                                 VerticalAlignment="Center"
-                                                                 Margin="0">
+                                                     <RadioButton GroupName="BuiltInPatchSources"
+                                                                  VerticalAlignment="Center"
+                                                                  Margin="0"
+                                                                  PointerEntered="ProbeBuiltInSource">
                                                         <RadioButton.IsChecked>
                                                             <Binding Path="IsSelected" />
                                                         </RadioButton.IsChecked>

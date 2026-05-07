@@ -36,6 +36,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private CancellationTokenSource? _installCancellationTokenSource;
     private readonly CancellationTokenSource _sourceProbeCancellationTokenSource = new();
+    private readonly Dictionary<BuiltInPatchSourceOption, Task> _sourceProbeTasks = [];
     private Task? _sourceProbeTask;
     [ObservableProperty] private bool _isAutoBuiltInSourceSelected;
     [ObservableProperty] private bool _isBusy;
@@ -91,7 +92,7 @@ public partial class MainWindowViewModel : ObservableObject
             SelectedPatchSource = LocalSource;
         }
 
-        if (BuiltInDownloadOptions.Count > 0) _sourceProbeTask = ProbeBuiltInSourcesAsync();
+        _sourceProbeTask = null;
     }
 
     public ObservableCollection<string> PatchSourceOptions { get; } = [];
@@ -216,11 +217,12 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            if (UseDownloadSource && IsAutoBuiltInSourceSelected && _sourceProbeTask is not null && !_sourceProbeTask.IsCompleted)
+            if (UseDownloadSource && IsAutoBuiltInSourceSelected)
             {
                 StatusText = "正在测速中";
                 DownloadText = "正在测速中";
                 DownloadSpeedText = string.Empty;
+                _sourceProbeTask ??= ProbeBuiltInSourcesAsync();
                 await _sourceProbeTask;
             }
 
@@ -555,8 +557,38 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task ProbeBuiltInSourcesAsync()
     {
-        var probeTasks = BuiltInDownloadOptions.Select(async option =>
+        var probeTasks = BuiltInDownloadOptions.Select(EnsureBuiltInSourceProbeAsync);
+
+        try
         {
+            await Task.WhenAll(probeTasks);
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored
+        }
+    }
+
+    public void StartBuiltInSourceProbe(BuiltInPatchSourceOption option)
+    {
+        _ = EnsureBuiltInSourceProbeAsync(option);
+    }
+
+    private Task EnsureBuiltInSourceProbeAsync(BuiltInPatchSourceOption option)
+    {
+        if (_sourceProbeTasks.TryGetValue(option, out var existingTask)) return existingTask;
+
+        var probeTask = ProbeBuiltInSourceAsync(option);
+        _sourceProbeTasks[option] = probeTask;
+        return probeTask;
+    }
+
+    private async Task ProbeBuiltInSourceAsync(BuiltInPatchSourceOption option)
+    {
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(option.SetProbeStarted);
+
             var probeResult =
                 await PatchDownloader.ProbeSourceAsync(new Uri(option.Url, UriKind.Absolute), _sourceProbeCancellationTokenSource.Token);
 
@@ -570,11 +602,6 @@ public partial class MainWindowViewModel : ObservableObject
 
                 option.SetProbeResult(probeResult.EffectiveUri.ToString(), probeResult.SampleBytes, probeResult.BytesPerSecond);
             });
-        });
-
-        try
-        {
-            await Task.WhenAll(probeTasks);
         }
         catch (OperationCanceledException)
         {
@@ -801,15 +828,18 @@ public partial class MainWindowViewModel : ObservableObject
         [ObservableProperty] private bool _isSelected;
         private long? _sampleBytes;
         private double? _sampleBytesPerSecond;
+        private bool _isProbeStarted;
         private bool _isProbeCompleted;
 
         public string Name { get; } = name;
         public string Url { get; } = url;
         public double? SampleBytesPerSecond => _sampleBytesPerSecond;
         public string ProbeTooltip => Url;
-        public string ProbeTooltipStatus => !_isProbeCompleted
-            ? "测速中..."
-            : _sampleBytesPerSecond is > 0
+        public string ProbeTooltipStatus => !_isProbeStarted
+            ? "未测速"
+            : !_isProbeCompleted
+                ? "测速中..."
+                : _sampleBytesPerSecond is > 0
                 ? $"测速: {FormatFullSpeed(_sampleBytesPerSecond.Value)} / 采样 {FormatBytes(_sampleBytes ?? 0)}"
                 : "测速失败";
 
@@ -825,10 +855,18 @@ public partial class MainWindowViewModel : ObservableObject
             if (IsSelected != value) IsSelected = value;
         }
 
+        public void SetProbeStarted()
+        {
+            _isProbeStarted = true;
+            _isProbeCompleted = false;
+            OnPropertyChanged(nameof(ProbeTooltipStatus));
+        }
+
         public void SetProbeResult(string effectiveUrl, long sampleBytes, double sampleBytesPerSecond)
         {
             _sampleBytes = sampleBytes;
             _sampleBytesPerSecond = sampleBytesPerSecond;
+            _isProbeStarted = true;
             _isProbeCompleted = true;
             OnPropertyChanged(nameof(SampleBytesPerSecond));
             OnPropertyChanged(nameof(ProbeTooltip));
@@ -839,6 +877,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _sampleBytes = null;
             _sampleBytesPerSecond = null;
+            _isProbeStarted = true;
             _isProbeCompleted = true;
             OnPropertyChanged(nameof(SampleBytesPerSecond));
             OnPropertyChanged(nameof(ProbeTooltip));

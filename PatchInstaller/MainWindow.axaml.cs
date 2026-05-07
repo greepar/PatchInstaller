@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Linq;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using SukiUI.Controls;
 using SukiUI.Dialogs;
@@ -70,5 +71,13 @@ public partial class MainWindow : SukiWindow
         viewModel.SelectedPatchSource = MainWindowViewModel.LocalSource;
         viewModel.StatusText = "已手动选择补丁";
         viewModel.Step2Status = "已选择";
+    }
+
+    private void ProbeBuiltInSource(object? sender, PointerEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel) return;
+        if (sender is not Avalonia.Controls.Control { DataContext: MainWindowViewModel.BuiltInPatchSourceOption option }) return;
+
+        viewModel.StartBuiltInSourceProbe(option);
     }
 }
