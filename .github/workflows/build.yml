@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     permissions:
       contents: write
@@ -49,14 +49,19 @@ jobs:
       - name: Publish DotNet Compression
         shell: pwsh
         run: |
-          dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64 `
-            -p:UseNativeAotProps=false `
-            -p:PublishAot=false `
-            -p:EnableCompressionInSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:PublishTrimmed=true `
-            -p:PublishReadyToRun=false `
-            -o .\artifacts\publish-dotnet-compression
+          $runtimes = @("win-x64", "osx-x64", "osx-arm64", "linux-x64", "linux-arm64")
+          foreach ($runtime in $runtimes) {
+            dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r $runtime `
+              -p:UseNativeAotProps=false `
+              -p:PublishAot=false `
+              -p:SelfContained=true `
+              -p:PublishSingleFile=true `
+              -p:EnableCompressionInSingleFile=true `
+              -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:PublishTrimmed=true `
+              -p:PublishReadyToRun=false `
+              -o ".\artifacts\publish-dotnet-compression\$runtime"
+          }
 
       - name: Package AOT
         shell: pwsh
@@ -69,38 +74,48 @@ jobs:
             throw "No .exe file found in AOT publish output."
           }
 
-          7z a -y -mx9 PatchInstaller.AOT.7z $exeFile.FullName
+          7z a -y -mx9 PatchInstaller.win-x64.AOT.7z $exeFile.FullName
 
           if ($null -ne $pdbFile) {
-            7z a -y -mx9 PatchInstaller.AOT.PDB.7z $pdbFile.FullName
+            7z a -y -mx9 PatchInstaller.win-x64.AOT.PDB.7z $pdbFile.FullName
           }
 
-          .\upx.exe --ultra-brute --overlay=strip $exeFile.FullName -o .\PatchInstaller.AOT.UPX.exe
-          7z a -y -mx9 PatchInstaller.AOT.UPX.7z .\PatchInstaller.AOT.UPX.exe
+          .\upx.exe --ultra-brute --overlay=strip $exeFile.FullName -o .\PatchInstaller.win-x64.AOT.UPX.exe
+          7z a -y -mx9 PatchInstaller.win-x64.AOT.UPX.7z .\PatchInstaller.win-x64.AOT.UPX.exe
 
       - name: Package DotNet Compression
         shell: pwsh
         run: |
-          $publishDir = ".\artifacts\publish-dotnet-compression"
           $jsonExamplePath = ".\PatchInstaller\PatchInstaller.json.example"
-          $exeFile = Get-ChildItem -Path $publishDir -Filter "*.exe" | Select-Object -First 1
-          $pdbFile = Get-ChildItem -Path $publishDir -Filter "*.pdb" | Select-Object -First 1
-
-          if ($null -eq $exeFile) {
-            throw "No .exe file found in DotNet Compression publish output."
-          }
 
           if (-not (Test-Path $jsonExamplePath)) {
             throw "PatchInstaller.json.example not found."
           }
 
-          $exePath = $exeFile.FullName
-          $pdbPath = if ($null -ne $pdbFile) { $pdbFile.FullName } else { $null }
+          $runtimes = @("win-x64", "osx-x64", "osx-arm64", "linux-x64", "linux-arm64")
+          foreach ($runtime in $runtimes) {
+            $publishDir = ".\artifacts\publish-dotnet-compression\$runtime"
+            $packageDir = ".\artifacts\package-dotnet-compression\$runtime"
+            $archivePath = ".\PatchInstaller.$runtime.DotNetCompression.7z"
 
-          7z a -y -mx9 PatchInstaller.DotNetCompression.7z $exePath
+            if (-not (Test-Path $publishDir)) {
+              throw "Publish output not found for $runtime."
+            }
 
-          if ($null -ne $pdbPath) {
-            7z a -y -mx9 PatchInstaller.DotNetCompression.PDB.7z $pdbPath
+            if (Test-Path $packageDir) {
+              Remove-Item $packageDir -Recurse -Force
+            }
+
+            New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+            Copy-Item "$publishDir\*" $packageDir -Recurse -Force
+            Copy-Item $jsonExamplePath "$packageDir\PatchInstaller.json" -Force
+            7z a -y -mx9 $archivePath "$packageDir\*"
+          }
+
+          $pdbFile = Get-ChildItem -Path ".\artifacts\publish-dotnet-compression\win-x64" -Filter "*.pdb" | Select-Object -First 1
+
+          if ($null -ne $pdbFile) {
+            7z a -y -mx9 PatchInstaller.win-x64.DotNetCompression.PDB.7z $pdbFile.FullName
           }
 
           Copy-Item $jsonExamplePath .\PatchInstaller.json -Force
@@ -113,9 +128,13 @@ jobs:
           overwrite_files: true
           generate_release_notes: true
           files: |
-            PatchInstaller.AOT.7z
-            PatchInstaller.AOT.PDB.7z
-            PatchInstaller.AOT.UPX.7z
-            PatchInstaller.DotNetCompression.7z
-            PatchInstaller.DotNetCompression.PDB.7z
+            PatchInstaller.win-x64.AOT.7z
+            PatchInstaller.win-x64.AOT.PDB.7z
+            PatchInstaller.win-x64.AOT.UPX.7z
+            PatchInstaller.win-x64.DotNetCompression.7z
+            PatchInstaller.win-x64.DotNetCompression.PDB.7z
+            PatchInstaller.osx-x64.DotNetCompression.7z
+            PatchInstaller.osx-arm64.DotNetCompression.7z
+            PatchInstaller.linux-x64.DotNetCompression.7z
+            PatchInstaller.linux-arm64.DotNetCompression.7z
             PatchInstaller.json
