@@ -35,11 +35,13 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _downloadSpeedText = string.Empty;
     [ObservableProperty] private string _downloadText = T("Waiting");
     [ObservableProperty] private string _gamePath = string.Empty;
+    [ObservableProperty] private int _sourceProbeCompletedCount;
 
     private CancellationTokenSource? _installCancellationTokenSource;
     private readonly CancellationTokenSource _sourceProbeCancellationTokenSource = new();
     private readonly Dictionary<BuiltInPatchSourceOption, Task> _sourceProbeTasks = [];
     private Task? _sourceProbeTask;
+    private bool _isShowingSourceProbeProgress;
     [ObservableProperty] private bool _isAutoBuiltInSourceSelected;
     [ObservableProperty] private bool _isBusy;
 
@@ -108,6 +110,10 @@ public partial class MainWindowViewModel : ObservableObject
     private bool HasMultipleBuiltInPatchUrls => BuiltInDownloadOptions.Count > 1;
     public bool ShowDownloadUrlInput => UseCustomSource || (UseDownloadSource && !HasMultipleBuiltInPatchUrls);
     public bool ShowBuiltInSourceSelector => UseDownloadSource && HasMultipleBuiltInPatchUrls;
+    public bool ShowSourceProbeProgress => ShowBuiltInSourceSelector && SourceProbeCompletedCount > 0 && SourceProbeCompletedCount < SourceProbeTotalCount;
+    public int SourceProbeTotalCount => BuiltInDownloadOptions.Count;
+    public double SourceProbeProgress => SourceProbeTotalCount > 0 ? SourceProbeCompletedCount * 100d / SourceProbeTotalCount : 0;
+    public string SourceProbeProgressText => SourceProbeTotalCount > 0 ? string.Format(T("ProbingSourcesProgress"), SourceProbeCompletedCount, SourceProbeTotalCount) : string.Empty;
     public bool IsLocalPatchReady => IsSupportedPatchFile(LocalPatchPath) && File.Exists(NormalizePath(LocalPatchPath));
     public bool ShowDownloadInstallButton => UseDownloadSource || UseCustomSource;
     public bool ShowLocalInstallButton => UseLocalSource && IsLocalPatchReady;
@@ -259,8 +265,10 @@ public partial class MainWindowViewModel : ObservableObject
 
             if (UseDownloadSource && IsAutoBuiltInSourceSelected)
             {
-                StatusText = "正在测速中";
-                DownloadText = "正在测速中";
+                StatusText = T("ProbingSources");
+                DownloadText = T("ProbingSources");
+                _isShowingSourceProbeProgress = true;
+                DownloadProgress = SourceProbeProgress;
                 DownloadSpeedText = string.Empty;
                 _sourceProbeTask ??= ProbeBuiltInSourcesAsync();
                 await _sourceProbeTask;
@@ -269,6 +277,7 @@ public partial class MainWindowViewModel : ObservableObject
             patchCandidates = GetEffectivePatchCandidates();
             if (patchCandidates.Length == 0)
             {
+                ClearProbeProgressIfNeeded();
                 StatusText = "补丁链接无效";
                 return;
             }
@@ -277,6 +286,7 @@ public partial class MainWindowViewModel : ObservableObject
         GamePath = NormalizePath(GamePath);
         if (!Directory.Exists(GamePath))
         {
+            ClearProbeProgressIfNeeded();
             StatusText = "游戏目录不存在";
             Step1Status = "未找到";
             return;
@@ -333,18 +343,18 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             if (!useLocalPatch) Step2Status = T("Completed");
-            StatusText = "正在解压补丁";
-            Step3Status = "解压中";
+            StatusText = T("ExtractingPatch");
+            Step3Status = T("Extracting");
             DownloadProgress = 0;
-            DownloadText = "正在解压 0.0%";
+            DownloadText = string.Format(T("ExtractingProgress"), 0d, 0, 0);
             DownloadSpeedText = string.Empty;
             await ArchiveInstaller.ExtractAsync(archivePath, extractPath, ReportExtractProgress);
 
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             var sourceRoot = ResolveExtractedRoot(extractPath);
-            Step3Status = "安装中";
-            StatusText = "正在覆盖安装";
+            Step3Status = T("Installing");
+            StatusText = T("InstallingPatch");
 
             var copied = await ElevationHelper.CopyWithElevationFallbackAsync(sourceRoot, GamePath);
             if (!copied) throw new InvalidOperationException("覆盖安装失败，可能是权限不足或管理员授权被取消。");
@@ -427,7 +437,7 @@ public partial class MainWindowViewModel : ObservableObject
         CancellationToken cancellationToken)
     {
         DownloadProgress = 0;
-        DownloadText = "正在连接服务器";
+        DownloadText = T("ConnectingServer");
         DownloadSpeedText = string.Empty;
 
         Exception? lastError = null;
@@ -440,7 +450,7 @@ public partial class MainWindowViewModel : ObservableObject
 
             try
             {
-                DownloadText = $"正在连接 {sourceLabel}";
+                DownloadText = string.Format(T("ConnectingSource"), sourceLabel);
                 await PatchDownloader.DownloadAsync(
                     patchUri,
                     downloadPath,
@@ -450,10 +460,10 @@ public partial class MainWindowViewModel : ObservableObject
                     {
                         DownloadProgress = report.ProgressPercent;
                         DownloadText = report.TotalBytes is > 0
-                            ? $"正在从 {sourceLabel} 下载 {report.ProgressPercent:0.0}% ({FormatBytes(report.DownloadedBytes)} / {FormatBytesPrecise(report.TotalBytes.Value)})"
-                            : $"正在从 {sourceLabel} 下载 {FormatBytes(report.DownloadedBytes)}";
+                            ? string.Format(T("DownloadingFromSourceProgress"), sourceLabel, report.ProgressPercent, FormatBytes(report.DownloadedBytes), FormatBytesPrecise(report.TotalBytes.Value))
+                            : string.Format(T("DownloadingFromSourceBytes"), sourceLabel, FormatBytes(report.DownloadedBytes));
                         DownloadSpeedText = report.BytesPerSecond > 0
-                            ? $"速度 {FormatSpeed(report.BytesPerSecond)}/s"
+                            ? string.Format(T("DownloadSpeed"), FormatSpeed(report.BytesPerSecond))
                             : string.Empty;
                     }),
                     cancellationToken);
@@ -461,7 +471,7 @@ public partial class MainWindowViewModel : ObservableObject
                 if (ArchiveInstaller.IsArchiveValid(downloadPath))
                 {
                     DownloadProgress = 100;
-                    DownloadText = $"已从 {sourceLabel} 下载完成";
+                    DownloadText = string.Format(T("DownloadedFromSource"), sourceLabel);
                     DownloadSpeedText = string.Empty;
                     return;
                 }
@@ -598,6 +608,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task ProbeBuiltInSourcesAsync()
     {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            SourceProbeCompletedCount = BuiltInDownloadOptions.Count(option => option.IsProbeCompleted);
+            NotifySourceProbeProgressChanged();
+        });
+
         var probeTasks = BuiltInDownloadOptions.Select(EnsureBuiltInSourceProbeAsync);
 
         try
@@ -654,6 +670,37 @@ public partial class MainWindowViewModel : ObservableObject
         {
             // ignored
         }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                SourceProbeCompletedCount = BuiltInDownloadOptions.Count(source => source.IsProbeCompleted);
+                NotifySourceProbeProgressChanged();
+                if (_isShowingSourceProbeProgress) DownloadProgress = SourceProbeProgress;
+            });
+        }
+    }
+
+    partial void OnSourceProbeCompletedCountChanged(int value)
+    {
+        NotifySourceProbeProgressChanged();
+    }
+
+    private void NotifySourceProbeProgressChanged()
+    {
+        OnPropertyChanged(nameof(ShowSourceProbeProgress));
+        OnPropertyChanged(nameof(SourceProbeProgress));
+        OnPropertyChanged(nameof(SourceProbeProgressText));
+    }
+
+    private void ClearProbeProgressIfNeeded()
+    {
+        if (!_isShowingSourceProbeProgress) return;
+
+        _isShowingSourceProbeProgress = false;
+        DownloadProgress = 0;
+        DownloadText = T("Waiting");
+        DownloadSpeedText = string.Empty;
     }
 
     private static string GetTemporaryDownloadFileName(string? suggestedFileName, Uri patchUri)
@@ -710,11 +757,11 @@ public partial class MainWindowViewModel : ObservableObject
             var percent = totalEntries <= 0 ? 0d : completedEntries * 100d / totalEntries;
             DownloadProgress = percent;
             DownloadText = totalEntries <= 0
-                ? $"正在解压 {completedEntries}"
-                : $"正在解压 {percent:0.0}%  {completedEntries} / {totalEntries}";
+                ? string.Format(T("ExtractingCount"), completedEntries)
+                : string.Format(T("ExtractingProgress"), percent, completedEntries, totalEntries);
             DownloadSpeedText = string.IsNullOrWhiteSpace(currentEntry)
                 ? string.Empty
-                : $"当前文件: {Path.GetFileName(currentEntry)}";
+                : string.Format(T("CurrentFile"), Path.GetFileName(currentEntry));
         });
     }
 
@@ -921,11 +968,12 @@ public partial class MainWindowViewModel : ObservableObject
         public string Name { get; } = name;
         public string Url { get; } = url;
         public double? SampleBytesPerSecond => _sampleBytesPerSecond;
+        public bool IsProbeCompleted => _isProbeCompleted;
         public string ProbeTooltip => Url;
         public string ProbeTooltipStatus => !_isProbeStarted
             ? "未测速"
             : !_isProbeCompleted
-                ? "测速中..."
+                ? T("ProbingSources")
                 : _sampleBytesPerSecond is > 0
                     ? $"测速: {FormatFullSpeed(_sampleBytesPerSecond.Value)} / 采样 {FormatBytes(_sampleBytes ?? 0)}"
                     : string.IsNullOrWhiteSpace(_probeErrorMessage)

@@ -11,17 +11,27 @@
   <data name="CancelingUpdate" xml:space="preserve"><value>Canceling update.</value></data>
   <data name="CheckingUpdate" xml:space="preserve"><value>Checking update...</value></data>
   <data name="Completed" xml:space="preserve"><value>Done</value></data>
+  <data name="ConnectingServer" xml:space="preserve"><value>Connecting to server</value></data>
+  <data name="ConnectingSource" xml:space="preserve"><value>Connecting to {0}</value></data>
   <data name="Continue" xml:space="preserve"><value>Continue</value></data>
   <data name="CurrentMd5" xml:space="preserve"><value>Current MD5:</value></data>
+  <data name="CurrentFile" xml:space="preserve"><value>Current file: {0}</value></data>
   <data name="CustomSource" xml:space="preserve"><value>URL</value></data>
   <data name="DownloadedUpdate" xml:space="preserve"><value>Update downloaded. Restarting.</value></data>
   <data name="Downloading" xml:space="preserve"><value>Downloading</value></data>
   <data name="DownloadingBytes" xml:space="preserve"><value>Downloading</value></data>
+  <data name="DownloadingFromSourceBytes" xml:space="preserve"><value>Downloading from {0} {1}</value></data>
+  <data name="DownloadingFromSourceProgress" xml:space="preserve"><value>Downloading from {0} {1:0.0}% ({2} / {3})</value></data>
+  <data name="DownloadedFromSource" xml:space="preserve"><value>Downloaded from {0}</value></data>
+  <data name="DownloadSpeed" xml:space="preserve"><value>Speed {0}/s</value></data>
   <data name="DownloadingUpdate" xml:space="preserve"><value>Downloading update. The app will restart when the download finishes.</value></data>
   <data name="DownloadSource" xml:space="preserve"><value>Source</value></data>
   <data name="DownloadUrlWatermark" xml:space="preserve"><value>Enter download URL</value></data>
   <data name="English" xml:space="preserve"><value>English</value></data>
   <data name="Extracting" xml:space="preserve"><value>Extracting</value></data>
+  <data name="ExtractingCount" xml:space="preserve"><value>Extracting {0}</value></data>
+  <data name="ExtractingPatch" xml:space="preserve"><value>Extracting patch</value></data>
+  <data name="ExtractingProgress" xml:space="preserve"><value>Extracting {0:0.0}%  {1} / {2}</value></data>
   <data name="ExtractInstall" xml:space="preserve"><value>Extract and install</value></data>
   <data name="Failed" xml:space="preserve"><value>Failed</value></data>
   <data name="GamePath" xml:space="preserve"><value>Game folder</value></data>
@@ -29,6 +39,7 @@
   <data name="GetPatch" xml:space="preserve"><value>Get patch</value></data>
   <data name="Install" xml:space="preserve"><value>Install</value></data>
   <data name="Installing" xml:space="preserve"><value>Installing</value></data>
+  <data name="InstallingPatch" xml:space="preserve"><value>Installing patch</value></data>
   <data name="InstallProgress" xml:space="preserve"><value>Progress:</value></data>
   <data name="LanguageEnglish" xml:space="preserve"><value>English</value></data>
   <data name="LanguageSimplifiedChinese" xml:space="preserve"><value>Simplified Chinese</value></data>
@@ -45,6 +56,8 @@
   <data name="PatchWatermark" xml:space="preserve"><value>Select zip / rar / 7z</value></data>
   <data name="Platform" xml:space="preserve"><value>Platform:</value></data>
   <data name="ProgramUpdateCheck" xml:space="preserve"><value>Update check</value></data>
+  <data name="ProbingSources" xml:space="preserve"><value>Testing sources</value></data>
+  <data name="ProbingSourcesProgress" xml:space="preserve"><value>Testing {0}/{1}</value></data>
   <data name="Ready" xml:space="preserve"><value>Ready</value></data>
   <data name="SelectLanguageSubtitle" xml:space="preserve"><value>Choose the display language</value></data>
   <data name="SelectLanguageTitle" xml:space="preserve"><value>Select language / 选择语言</value></data>

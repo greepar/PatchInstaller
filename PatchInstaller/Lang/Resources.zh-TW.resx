@@ -11,17 +11,27 @@
   <data name="CancelingUpdate" xml:space="preserve"><value>正在取消更新。</value></data>
   <data name="CheckingUpdate" xml:space="preserve"><value>正在檢查中...</value></data>
   <data name="Completed" xml:space="preserve"><value>完成</value></data>
+  <data name="ConnectingServer" xml:space="preserve"><value>正在連線伺服器</value></data>
+  <data name="ConnectingSource" xml:space="preserve"><value>正在連線 {0}</value></data>
   <data name="Continue" xml:space="preserve"><value>繼續</value></data>
   <data name="CurrentMd5" xml:space="preserve"><value>目前 MD5：</value></data>
+  <data name="CurrentFile" xml:space="preserve"><value>目前檔案: {0}</value></data>
   <data name="CustomSource" xml:space="preserve"><value>下載連結</value></data>
   <data name="DownloadedUpdate" xml:space="preserve"><value>更新已下載完成，正在重新啟動程式。</value></data>
   <data name="Downloading" xml:space="preserve"><value>下載中</value></data>
   <data name="DownloadingBytes" xml:space="preserve"><value>正在下載</value></data>
+  <data name="DownloadingFromSourceBytes" xml:space="preserve"><value>正在從 {0} 下載 {1}</value></data>
+  <data name="DownloadingFromSourceProgress" xml:space="preserve"><value>正在從 {0} 下載 {1:0.0}% ({2} / {3})</value></data>
+  <data name="DownloadedFromSource" xml:space="preserve"><value>已從 {0} 下載完成</value></data>
+  <data name="DownloadSpeed" xml:space="preserve"><value>速度 {0}/s</value></data>
   <data name="DownloadingUpdate" xml:space="preserve"><value>正在下載更新，請稍候。下載完成後程式會自動重新啟動。</value></data>
   <data name="DownloadSource" xml:space="preserve"><value>下載源</value></data>
   <data name="DownloadUrlWatermark" xml:space="preserve"><value>請輸入下載連結</value></data>
   <data name="English" xml:space="preserve"><value>英文</value></data>
   <data name="Extracting" xml:space="preserve"><value>解壓中</value></data>
+  <data name="ExtractingCount" xml:space="preserve"><value>正在解壓 {0}</value></data>
+  <data name="ExtractingPatch" xml:space="preserve"><value>正在解壓補丁</value></data>
+  <data name="ExtractingProgress" xml:space="preserve"><value>正在解壓 {0:0.0}%  {1} / {2}</value></data>
   <data name="ExtractInstall" xml:space="preserve"><value>解壓安裝</value></data>
   <data name="Failed" xml:space="preserve"><value>失敗</value></data>
   <data name="GamePath" xml:space="preserve"><value>遊戲目錄</value></data>
@@ -29,6 +39,7 @@
   <data name="GetPatch" xml:space="preserve"><value>取得補丁</value></data>
   <data name="Install" xml:space="preserve"><value>一鍵安裝</value></data>
   <data name="Installing" xml:space="preserve"><value>安裝中</value></data>
+  <data name="InstallingPatch" xml:space="preserve"><value>正在覆蓋安裝</value></data>
   <data name="InstallProgress" xml:space="preserve"><value>安裝進度:</value></data>
   <data name="LanguageEnglish" xml:space="preserve"><value>English</value></data>
   <data name="LanguageSimplifiedChinese" xml:space="preserve"><value>簡體中文</value></data>
@@ -45,6 +56,8 @@
   <data name="PatchWatermark" xml:space="preserve"><value>請選擇 zip / rar / 7z</value></data>
   <data name="Platform" xml:space="preserve"><value>平台：</value></data>
   <data name="ProgramUpdateCheck" xml:space="preserve"><value>程式更新檢查</value></data>
+  <data name="ProbingSources" xml:space="preserve"><value>正在測速中</value></data>
+  <data name="ProbingSourcesProgress" xml:space="preserve"><value>測速中 {0}/{1}</value></data>
   <data name="Ready" xml:space="preserve"><value>準備就緒</value></data>
   <data name="SelectLanguageSubtitle" xml:space="preserve"><value>請選擇程式顯示語言</value></data>
   <data name="SelectLanguageTitle" xml:space="preserve"><value>選擇語言 / Select language</value></data>

@@ -79,9 +79,9 @@
                               ColumnSpacing="12">
                             <Grid Grid.Column="0">
                                 <TextBox IsVisible="{Binding ShowDownloadUrlInput}"
-                                         IsEnabled="{Binding CanInstall}"
-                                         Watermark="{Binding DownloadUrlWatermarkText}"
-                                         Text="{Binding PatchUrl}" />
+                                          IsEnabled="{Binding CanInstall}"
+                                          Watermark="{Binding DownloadUrlWatermarkText}"
+                                          Text="{Binding PatchUrl}" />
                                 <Border IsVisible="{Binding ShowBuiltInSourceSelector}"
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Center"
