@@ -250,7 +250,6 @@ internal static class PatchDownloader
 
             using var probeRequest = new HttpRequestMessage(HttpMethod.Get, effectiveUri);
             probeRequest.Headers.Range = new RangeHeaderValue(0, ProbeSampleBytes - 1);
-            var stopwatch = Stopwatch.StartNew();
             using var response =
                 await HttpClient.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCancellationToken);
             if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.PartialContent)
@@ -261,6 +260,7 @@ internal static class PatchDownloader
             await using var stream = await response.Content.ReadAsStreamAsync(probeCancellationToken);
             var buffer = new byte[64 * 1024];
             long totalRead = 0;
+            var stopwatch = Stopwatch.StartNew();
 
             while (totalRead < ProbeSampleBytes)
             {

@@ -6,10 +6,10 @@
         <LangVersion>13</LangVersion>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <PublishSingleFile>true</PublishSingleFile>
-        <Version>1.2.1</Version>
-        <FileVersion>1.2.1.0</FileVersion>
-        <AssemblyVersion>1.2.1.0</AssemblyVersion>
-        <InformationalVersion>1.2.1</InformationalVersion>
+        <Version>1.2.2</Version>
+        <FileVersion>1.2.2.0</FileVersion>
+        <AssemblyVersion>1.2.2.0</AssemblyVersion>
+        <InformationalVersion>1.2.2</InformationalVersion>
         <Authors>greepar</Authors>
         <Company>greepar</Company>
         <Product>$(InstallerProductName)</Product>

@@ -51,8 +51,10 @@ jobs:
         run: |
           $runtimes = @("win-x64", "osx-x64", "osx-arm64", "linux-x64", "linux-arm64")
           foreach ($runtime in $runtimes) {
+            $platformTarget = if ($runtime.EndsWith("-arm64")) { "arm64" } else { "x64" }
             dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r $runtime `
               -p:UseNativeAotProps=false `
+              -p:PlatformTarget=$platformTarget `
               -p:PublishAot=false `
               -p:SelfContained=true `
               -p:PublishSingleFile=true `
