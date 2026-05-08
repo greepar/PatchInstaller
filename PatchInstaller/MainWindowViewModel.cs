@@ -637,7 +637,13 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 if (probeResult is null)
                 {
-                    option.SetProbeFailed();
+                    option.SetProbeFailed(null);
+                    return;
+                }
+
+                if (!probeResult.IsSuccess)
+                {
+                    option.SetProbeFailed(probeResult.ErrorMessage);
                     return;
                 }
 
@@ -908,6 +914,7 @@ public partial class MainWindowViewModel : ObservableObject
         [ObservableProperty] private bool _isSelected;
         private long? _sampleBytes;
         private double? _sampleBytesPerSecond;
+        private string? _probeErrorMessage;
         private bool _isProbeStarted;
         private bool _isProbeCompleted;
 
@@ -920,8 +927,10 @@ public partial class MainWindowViewModel : ObservableObject
             : !_isProbeCompleted
                 ? "测速中..."
                 : _sampleBytesPerSecond is > 0
-                ? $"测速: {FormatFullSpeed(_sampleBytesPerSecond.Value)} / 采样 {FormatBytes(_sampleBytes ?? 0)}"
-                : "测速失败";
+                    ? $"测速: {FormatFullSpeed(_sampleBytesPerSecond.Value)} / 采样 {FormatBytes(_sampleBytes ?? 0)}"
+                    : string.IsNullOrWhiteSpace(_probeErrorMessage)
+                        ? "测速失败"
+                        : $"测速失败：{_probeErrorMessage}";
 
         partial void OnIsSelectedChanged(bool value)
         {
@@ -946,6 +955,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _sampleBytes = sampleBytes;
             _sampleBytesPerSecond = sampleBytesPerSecond;
+            _probeErrorMessage = null;
             _isProbeStarted = true;
             _isProbeCompleted = true;
             OnPropertyChanged(nameof(SampleBytesPerSecond));
@@ -953,10 +963,11 @@ public partial class MainWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(ProbeTooltipStatus));
         }
 
-        public void SetProbeFailed()
+        public void SetProbeFailed(string? errorMessage)
         {
             _sampleBytes = null;
             _sampleBytesPerSecond = null;
+            _probeErrorMessage = errorMessage;
             _isProbeStarted = true;
             _isProbeCompleted = true;
             OnPropertyChanged(nameof(SampleBytesPerSecond));

@@ -28,7 +28,16 @@ internal sealed record DownloadMetadata(
 internal sealed record SourceProbeResult(
     Uri EffectiveUri,
     long SampleBytes,
-    double BytesPerSecond);
+    double BytesPerSecond,
+    string? ErrorMessage = null)
+{
+    public bool IsSuccess => BytesPerSecond > 0 && SampleBytes > 0;
+
+    public static SourceProbeResult Failed(Uri effectiveUri, string errorMessage)
+    {
+        return new SourceProbeResult(effectiveUri, 0, 0, errorMessage);
+    }
+}
 
 internal sealed class PatchDownloadException(string message, Exception? innerException = null)
     : Exception(message, innerException);
@@ -36,6 +45,7 @@ internal sealed class PatchDownloadException(string message, Exception? innerExc
 internal static class PatchDownloader
 {
     private const int ProbeSampleBytes = 20 * 1024 * 1024;
+    private const string ProbeUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0";
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(8);
     private static readonly HttpClient HttpClient = HttpClientService.Create(Timeout.InfiniteTimeSpan);
 
@@ -239,60 +249,135 @@ internal static class PatchDownloader
 
     public static async Task<SourceProbeResult?> ProbeSourceAsync(Uri url, CancellationToken cancellationToken)
     {
+        Uri effectiveUri = url;
+
         try
         {
-            using var probeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            probeCancellationTokenSource.CancelAfter(ProbeTimeout);
-            var probeCancellationToken = probeCancellationTokenSource.Token;
+            using var connectionCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            connectionCancellationTokenSource.CancelAfter(ProbeTimeout);
+            var connectionCancellationToken = connectionCancellationTokenSource.Token;
 
-            using var resolvedResponse = await SendMetadataRequestAsync(url, probeCancellationToken);
-            var effectiveUri = resolvedResponse.RequestMessage?.RequestUri ?? url;
-
-            using var probeRequest = new HttpRequestMessage(HttpMethod.Get, effectiveUri);
-            probeRequest.Headers.Range = new RangeHeaderValue(0, ProbeSampleBytes - 1);
-            using var response =
-                await HttpClient.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCancellationToken);
+            using var response = await SendProbeRequestAsync(url, connectionCancellationToken);
+            effectiveUri = response.RequestMessage?.RequestUri ?? url;
             if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.PartialContent)
             {
-                return null;
+                return SourceProbeResult.Failed(
+                    response.RequestMessage?.RequestUri ?? effectiveUri,
+                    $"HTTP {(int)response.StatusCode} {response.StatusCode}");
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(probeCancellationToken);
-            var buffer = new byte[64 * 1024];
-            long totalRead = 0;
-            var stopwatch = Stopwatch.StartNew();
-
-            while (totalRead < ProbeSampleBytes)
+            try
             {
-                var remaining = (int)Math.Min(buffer.Length, ProbeSampleBytes - totalRead);
-                var bytesRead = await stream.ReadAsync(buffer.AsMemory(0, remaining), probeCancellationToken);
-                if (bytesRead <= 0)
+                using var readCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                readCancellationTokenSource.CancelAfter(ProbeTimeout);
+                var readCancellationToken = readCancellationTokenSource.Token;
+
+                await using var stream = await response.Content.ReadAsStreamAsync(readCancellationToken);
+                var buffer = new byte[64 * 1024];
+                long totalRead = 0;
+                var stopwatch = Stopwatch.StartNew();
+
+                try
                 {
-                    break;
+                    while (totalRead < ProbeSampleBytes)
+                    {
+                        var remaining = (int)Math.Min(buffer.Length, ProbeSampleBytes - totalRead);
+                        var bytesRead = await stream.ReadAsync(buffer.AsMemory(0, remaining), readCancellationToken);
+                        if (bytesRead <= 0)
+                        {
+                            break;
+                        }
+
+                        totalRead += bytesRead;
+                    }
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && totalRead > 0)
+                {
+                    // A partial sample is still useful; slow sources should report a speed instead of only timing out.
                 }
 
-                totalRead += bytesRead;
-            }
+                stopwatch.Stop();
+                if (totalRead <= 0 || stopwatch.Elapsed.TotalSeconds <= 0)
+                {
+                    return SourceProbeResult.Failed(response.RequestMessage?.RequestUri ?? effectiveUri, "已拿到响应头，但未读取到响应数据");
+                }
 
-            stopwatch.Stop();
-            if (totalRead <= 0 || stopwatch.Elapsed.TotalSeconds <= 0)
+                return new SourceProbeResult(
+                    response.RequestMessage?.RequestUri ?? effectiveUri,
+                    totalRead,
+                    totalRead / stopwatch.Elapsed.TotalSeconds);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return null;
+                return SourceProbeResult.Failed(response.RequestMessage?.RequestUri ?? effectiveUri, $"已拿到响应头，读取响应体超时（{ProbeTimeout.TotalSeconds:0} 秒）");
             }
-
-            return new SourceProbeResult(
-                response.RequestMessage?.RequestUri ?? effectiveUri,
-                totalRead,
-                totalRead / stopwatch.Elapsed.TotalSeconds);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return null;
+            return SourceProbeResult.Failed(effectiveUri, $"等待响应头超时（{ProbeTimeout.TotalSeconds:0} 秒）");
         }
-        catch
+        catch (HttpRequestException ex)
         {
-            return null;
+            return SourceProbeResult.Failed(effectiveUri, GetProbeErrorMessage(ex));
         }
+        catch (SocketException ex)
+        {
+            return SourceProbeResult.Failed(effectiveUri, GetSocketErrorMessage(ex.SocketErrorCode));
+        }
+        catch (Exception ex)
+        {
+            return SourceProbeResult.Failed(effectiveUri, ex.Message);
+        }
+    }
+
+    private static async Task<HttpResponseMessage> SendProbeRequestAsync(Uri url, CancellationToken cancellationToken)
+    {
+        var currentUri = url;
+        for (var redirectCount = 0; redirectCount <= 8; redirectCount++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
+            request.Headers.Range = new RangeHeaderValue(0, ProbeSampleBytes - 1);
+            request.Headers.Remove("User-Agent");
+            request.Headers.TryAddWithoutValidation("User-Agent", ProbeUserAgent);
+
+            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!IsRedirect(response.StatusCode))
+            {
+                return response;
+            }
+
+            var location = response.Headers.Location;
+            if (location is null)
+            {
+                return response;
+            }
+
+            currentUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
+            response.Dispose();
+        }
+
+        throw new HttpRequestException("重定向次数过多");
+    }
+
+    private static bool IsRedirect(HttpStatusCode statusCode)
+    {
+        return statusCode is HttpStatusCode.Moved
+            or HttpStatusCode.Redirect
+            or HttpStatusCode.RedirectMethod
+            or HttpStatusCode.TemporaryRedirect
+            or HttpStatusCode.PermanentRedirect;
+    }
+
+    private static string GetProbeErrorMessage(HttpRequestException exception)
+    {
+        if (exception.StatusCode is { } statusCode)
+        {
+            return $"HTTP {(int)statusCode} {statusCode}";
+        }
+
+        return exception.InnerException is SocketException socketException
+            ? GetSocketErrorMessage(socketException.SocketErrorCode)
+            : exception.Message;
     }
 
     private static async Task<DownloadMetadata> GetMetadataAsync(Uri url, CancellationToken cancellationToken)
