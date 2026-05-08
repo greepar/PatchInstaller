@@ -167,21 +167,17 @@ public partial class MainWindow : SukiWindow
             return;
         }
 
+        var updateCheckDialog = await DialogService.ShowManualUpdateCheckProgressAsync(md5, platform);
+
         try
         {
             var result = await UpdateService.CheckAsync(default);
-            await DialogService.ShowManualUpdateCheckAsync(md5, platform, result);
-
-            if (result.IsAvailable && !string.IsNullOrWhiteSpace(result.DownloadUrl))
-            {
-                var shouldRestart = await DialogService.ShowUpdateAvailableAsync(result.DownloadUrl);
-                if (shouldRestart) Close();
-            }
+            await updateCheckDialog.SetResultAsync(result);
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex);
-            await DialogService.ShowManualUpdateCheckFailedAsync(md5, platform, ex.Message);
+            await updateCheckDialog.SetFailedAsync(ex.Message);
         }
         finally
         {

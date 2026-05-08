@@ -9,6 +9,7 @@
   <data name="CancelDownload" xml:space="preserve"><value>Cancel</value></data>
   <data name="Canceled" xml:space="preserve"><value>Canceled</value></data>
   <data name="CancelingUpdate" xml:space="preserve"><value>Canceling update.</value></data>
+  <data name="CheckingUpdate" xml:space="preserve"><value>Checking update...</value></data>
   <data name="Completed" xml:space="preserve"><value>Done</value></data>
   <data name="Continue" xml:space="preserve"><value>Continue</value></data>
   <data name="CurrentMd5" xml:space="preserve"><value>Current MD5:</value></data>
