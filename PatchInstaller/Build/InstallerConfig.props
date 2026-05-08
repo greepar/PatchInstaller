@@ -1,8 +1,9 @@
 <Project>
   <PropertyGroup>
     <InstallerName>PatchInstaller</InstallerName>
-    <DefaultPatchUrl></DefaultPatchUrl>
-    <PatchFilePrefix>Patch</PatchFilePrefix>
-    <SteamGameFolderName>Game</SteamGameFolderName>
+    <DefaultPatchUrl>主源|https://patch-1.example.com/latest.zip;镜像源|https://patch-2.example.com/latest.zip</DefaultPatchUrl>
+    <PatchFilePrefix>KissMeEveryday</PatchFilePrefix>
+    <SteamGameFolderName>Mainichi Kiss</SteamGameFolderName>
+    <CheckUpdateApi></CheckUpdateApi>
   </PropertyGroup>
 </Project>

@@ -9,7 +9,6 @@
                    Height="550"
                    CanResize="False"
                    CanMinimize="True"
-                   FontFamily="avares://PatchInstaller/Assets/HarmonyOS_Sans_SC.ttf#鸿蒙黑体 Thin"
                    Title="Patch Installer">
 
     <sukiUi:SukiWindow.Hosts>
@@ -20,14 +19,15 @@
         <patchInstaller:MainWindowViewModel />
     </Design.DataContext>
 
-    <Border Padding="24 24 24 12">
+    <Grid>
+    <Border Name="MainContent" Padding="24 24 24 12" Opacity="0" IsHitTestVisible="False">
         <Grid RowDefinitions="Auto,Auto,*" RowSpacing="16">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Grid.Column="0" Spacing="6">
                     <TextBlock FontSize="28"
                                FontWeight="Bold"
                                Text="{Binding ProductName}" />
-                    <TextBlock Text="从链接下载，或直接使用本地 zip / rar 补丁包进行安装" />
+                    <TextBlock Text="{Binding SubtitleText}" />
                 </StackPanel>
 
                 <Button Grid.Column="1"
@@ -64,8 +64,14 @@
                         <ComboBox Grid.Column="0"
                                   Margin="-10 0 0 0"
                                   IsEnabled="{Binding CanInstall}"
-                                  SelectedItem="{Binding SelectedPatchSource}"
-                                  ItemsSource="{Binding PatchSourceOptions}" />
+                                  SelectedItem="{Binding SelectedPatchSourceOption}"
+                                  ItemsSource="{Binding PatchSourceOptions}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
 
                         <Grid Grid.Column="1"
                               IsVisible="{Binding UseRemoteSource}"
@@ -74,7 +80,7 @@
                             <Grid Grid.Column="0">
                                 <TextBox IsVisible="{Binding ShowDownloadUrlInput}"
                                          IsEnabled="{Binding CanInstall}"
-                                         Watermark="请输入下载链接"
+                                         Watermark="{Binding DownloadUrlWatermarkText}"
                                          Text="{Binding PatchUrl}" />
                                 <Border IsVisible="{Binding ShowBuiltInSourceSelector}"
                                         HorizontalAlignment="Left"
@@ -87,7 +93,7 @@
                                                      VerticalAlignment="Center"
                                                      IsChecked="{Binding IsAutoBuiltInSourceSelected}">
                                             <TextBlock FontWeight="SemiBold"
-                                                       Text="自动" />
+                                                       Text="{Binding AutoText}" />
                                         </RadioButton>
                                         <ItemsControl ItemsSource="{Binding BuiltInDownloadOptions}"
                                                       VerticalAlignment="Center">
@@ -127,7 +133,7 @@
                                     Width="130"
                                     IsEnabled="{Binding CanInstall}"
                                     Command="{Binding InstallCommand}"
-                                    Content="一键安装" />
+                                    Content="{Binding InstallText}" />
                         </Grid>
 
                         <Grid Grid.Column="1"
@@ -136,21 +142,21 @@
                               ColumnSpacing="12">
                             <TextBox Grid.Column="0"
                                      IsEnabled="{Binding CanInstall}"
-                                     Watermark="请选择 zip / rar / 7z"
+                                     Watermark="{Binding PatchWatermarkText}"
                                      Text="{Binding LocalPatchPath}" />
                             <Button Grid.Column="1"
 
                                     Width="130"
                                     IsEnabled="{Binding CanInstall}"
                                     Click="ManualSelectPatch"
-                                    Content="重新选择补丁" />
+                                    Content="{Binding SelectPatchText}" />
                             <Button Grid.Column="2"
                                     IsVisible="{Binding ShowLocalInstallButton}"
 
                                     Width="130"
                                     IsEnabled="{Binding CanInstall}"
                                     Command="{Binding InstallCommand}"
-                                    Content="一键安装" />
+                                    Content="{Binding InstallText}" />
                         </Grid>
                     </Grid>
 
@@ -158,9 +164,9 @@
                         <TextBlock Grid.Column="0"
                                    VerticalAlignment="Center"
 
-                                   Text="游戏目录" />
+                                   Text="{Binding GamePathText}" />
                         <TextBox Grid.Column="1"
-                                 Watermark="请选择游戏安装目录"
+                                 Watermark="{Binding GamePathWatermarkText}"
                                  IsEnabled="{Binding CanInstall}"
                                  Text="{Binding GamePath}" />
                         <Button Grid.Column="2"
@@ -168,7 +174,7 @@
                                 Width="130"
                                 IsEnabled="{Binding CanInstall}"
                                 Click="ManualLocateGamePath"
-                                Content="手动定位" />
+                                Content="{Binding LocateText}" />
                     </Grid>
                 </Grid>
             </Border>
@@ -179,7 +185,7 @@
                         <TextBlock Grid.Column="0"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Bottom"
-                                   Text="安装进度:" />
+                                   Text="{Binding InstallProgressText}" />
                         <TextBlock Grid.Column="1"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
@@ -187,7 +193,7 @@
                         <Button Grid.Column="2"
                                 IsVisible="{Binding CanCancelInstall}"
                                 Command="{Binding CancelInstallCommand}"
-                                Content="取消下载" />
+                                Content="{Binding CancelDownloadText}" />
                         <Button Grid.Column="3"
                                 Width="1" MinWidth="1"
                                 IsVisible="True"
@@ -212,7 +218,7 @@
                             <StackPanel Spacing="6">
                                 <TextBlock FontWeight="SemiBold"
                                            Opacity="0.75"
-                                           Text="定位游戏" />
+                                           Text="{Binding LocateGameText}" />
                                 <Separator />
                                 <TextBlock FontSize="18"
                                            FontWeight="SemiBold"
@@ -226,7 +232,7 @@
                             <StackPanel Spacing="6">
                                 <TextBlock FontWeight="SemiBold"
                                            Opacity="0.75"
-                                           Text="获取补丁" />
+                                           Text="{Binding GetPatchText}" />
                                 <Separator />
                                 <TextBlock FontSize="18"
                                            FontWeight="SemiBold"
@@ -240,7 +246,7 @@
                             <StackPanel Spacing="6">
                                 <TextBlock FontWeight="SemiBold"
                                            Opacity="0.75"
-                                           Text="解压安装" />
+                                           Text="{Binding ExtractInstallText}" />
                                 <Separator />
                                 <TextBlock FontSize="18"
                                            FontWeight="SemiBold"
@@ -255,7 +261,42 @@
             <TextBlock Grid.Row="2" Margin="0 0 0 0"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Bottom"
+                       PointerPressed="VersionTextPointerPressed"
                        Text="{Binding DisplayVersion, StringFormat='© greepar · v{0}'}" />
         </Grid>
     </Border>
+
+    <Border Name="LanguageOverlay"
+            Background="Transparent"
+            IsHitTestVisible="True"
+            Opacity="1">
+        <StackPanel Width="420"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="18">
+            <TextBlock HorizontalAlignment="Center"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Text="显示语言 / Display language" />
+            <ComboBox Width="300"
+                      Name="LanguageComboBox"
+                      MinHeight="52"
+                      HorizontalAlignment="Center"
+                      HorizontalContentAlignment="Center"
+                      Padding="16,0"
+                      PlaceholderText="请选择 / Choose">
+                <ComboBoxItem HorizontalContentAlignment="Center" Content="简体中文" />
+                <ComboBoxItem HorizontalContentAlignment="Center" Content="繁體中文" />
+                <ComboBoxItem HorizontalContentAlignment="Center" Content="English" />
+            </ComboBox>
+            <Button MinWidth="132"
+                    MinHeight="38"
+                    Padding="22,0"
+                    HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center"
+                    Click="ConfirmLanguageSelection"
+                    Content="下一步 / Next" />
+        </StackPanel>
+    </Border>
+    </Grid>
 </sukiUi:SukiWindow>

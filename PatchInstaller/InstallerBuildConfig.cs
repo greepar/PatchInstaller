@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace PatchInstaller;
@@ -20,6 +21,8 @@ internal static class InstallerBuildConfig
         ?? Assembly.GetName().Version?.ToString(3)
         ?? "1.0.0";
 
+    public static string UserAgent => $"PatchInstaller v{DisplayVersion} ({GetSystemVersion()})";
+
     public static string DefaultPatchUrl => GetValue(
         [Runtime?.DefaultPatchUrl, GetMetadata("DefaultPatchUrl")],
         string.Empty);
@@ -31,6 +34,12 @@ internal static class InstallerBuildConfig
     public static string SteamGameFolderName => GetValue(
         [Runtime?.SteamGameFolderName, GetMetadata("SteamGameFolderName")],
         "Mainichikisushite");
+
+    public static string CheckUpdateApi => GetValue(
+        [Runtime?.CheckUpdateApi, GetMetadata("CheckUpdateApi")],
+        string.Empty);
+
+    public static bool HasCheckUpdateApi => !string.IsNullOrWhiteSpace(CheckUpdateApi);
 
     private static string GetValue(IEnumerable<string?> candidates, string fallback)
     {
@@ -85,6 +94,17 @@ internal static class InstallerBuildConfig
         return $"{version}+{shortRevision}";
     }
 
+    private static string GetSystemVersion()
+    {
+        var description = RuntimeInformation.OSDescription.Trim();
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            return description;
+        }
+
+        return Environment.OSVersion.VersionString;
+    }
+
     private static RuntimeConfig? LoadRuntimeConfig()
     {
         foreach (var path in GetRuntimeConfigCandidates())
@@ -104,7 +124,8 @@ internal static class InstallerBuildConfig
                     GetString(root, "productName"),
                     GetString(root, "defaultPatchUrl"),
                     GetString(root, "patchFilePrefix"),
-                    GetString(root, "steamGameFolderName"));
+                    GetString(root, "steamGameFolderName"),
+                    GetString(root, "checkUpdateApi"));
             }
             catch
             {
@@ -136,5 +157,6 @@ internal static class InstallerBuildConfig
         string? ProductName,
         string? DefaultPatchUrl,
         string? PatchFilePrefix,
-        string? SteamGameFolderName);
+        string? SteamGameFolderName,
+        string? CheckUpdateApi);
 }

@@ -21,7 +21,8 @@
     <InstallerName>PatchInstaller</InstallerName>
     <DefaultPatchUrl>主源|https://patch-1.example.com/latest.zip;镜像源|https://patch-2.example.com/latest.zip</DefaultPatchUrl>
     <PatchFilePrefix>KissMeEveryday</PatchFilePrefix>
-    <SteamGameFolderName>Mainichikisushite</SteamGameFolderName>
+    <SteamGameFolderName>Mainichi Kiss</SteamGameFolderName>
+    <CheckUpdateApi></CheckUpdateApi>
   </PropertyGroup>
 </Project>
 ```
@@ -31,7 +32,8 @@
 - `DefaultPatchUrl`：默认补丁下载链接，可留空；多个源可用 `;` 分隔，每项可写成 `名称|链接`
   为空时界面不显示“下载源”选项，只保留可手动输入的“下载链接”
 - `PatchFilePrefix`：自动识别本地补丁时的文件名前缀(适合自带补丁压缩包)
-- `SteamGameFolderName`：Steam 游戏目录名，用于自动定位
+- `SteamGameFolderName`：Steam 游戏名或游戏目录名，用于自动定位
+- `CheckUpdateApi`：补丁安装器自身更新检查接口，可留空关闭检查
 
 ## 运行时 JSON 配置
 
@@ -53,7 +55,8 @@ PatchInstaller.json
   "productName": "PatchInstaller",
   "defaultPatchUrl": "主源|https://example.com/patch/latest.zip;镜像源|https://mirror.example.com/patch/latest.zip",
   "patchFilePrefix": "Patch",
-  "steamGameFolderName": "YourSteamGameFolder"
+  "steamGameFolderName": "YourSteamGameName",
+  "checkUpdateApi": ""
 }
 ```
 
@@ -62,7 +65,8 @@ PatchInstaller.json
 - `defaultPatchUrl`：默认下载链接或直链；多个源可用 `;` 分隔，每项可写成 `名称|链接`
   为空时界面不显示“下载源”选项，只保留可手动输入的“下载链接”
 - `patchFilePrefix`：自动识别本地补丁时的前缀
-- `steamGameFolderName`：Steam 游戏目录名
+- `steamGameFolderName`：Steam 游戏名或游戏目录名
+- `checkUpdateApi`：补丁安装器自身更新检查接口，可留空关闭检查
 
 读取优先级：
 1. `PatchInstaller.json`

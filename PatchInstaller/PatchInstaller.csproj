@@ -25,8 +25,7 @@
     </PropertyGroup>
 
     <Import Project="Build\InstallerConfig.props" />
-
-
+    
     <!--    Aot publish-->
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <SelfContained>true</SelfContained>
@@ -82,6 +81,10 @@
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
             <_Parameter1>SteamGameFolderName</_Parameter1>
             <_Parameter2>$(SteamGameFolderName)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>CheckUpdateApi</_Parameter1>
+            <_Parameter2>$(CheckUpdateApi)</_Parameter2>
         </AssemblyAttribute>
     </ItemGroup>
     

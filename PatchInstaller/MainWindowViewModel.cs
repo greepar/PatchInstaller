@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,9 +18,9 @@ namespace PatchInstaller;
 
 public partial class MainWindowViewModel : ObservableObject
 {
-    private const string DownloadSource = "下载源";
-    private const string CustomSource = "下载链接";
-    public const string LocalSource = "本地补丁";
+    private const string DownloadSource = "download";
+    private const string CustomSource = "custom";
+    public const string LocalSource = "local";
     private const int ParallelDownloadSegments = 8;
     private const int DownloadRetryCount = 800;
 
@@ -31,7 +33,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _canInstall = true;
     [ObservableProperty] private double _downloadProgress;
     [ObservableProperty] private string _downloadSpeedText = string.Empty;
-    [ObservableProperty] private string _downloadText = "等待开始";
+    [ObservableProperty] private string _downloadText = T("Waiting");
     [ObservableProperty] private string _gamePath = string.Empty;
 
     private CancellationTokenSource? _installCancellationTokenSource;
@@ -54,55 +56,56 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedBuiltInPatchUrl = BuiltInPatchSources.FirstOrDefault()?.Url ?? string.Empty;
 
-    [ObservableProperty] private string _selectedPatchSource = CustomSource;
-    [ObservableProperty] private string _statusText = "准备就绪";
-    [ObservableProperty] private string _step1Status = "未执行";
-    [ObservableProperty] private string _step2Status = "未执行";
-    [ObservableProperty] private string _step3Status = "未执行";
+    [ObservableProperty] private PatchSourceOption? _selectedPatchSourceOption;
+    [ObservableProperty] private string _statusText = T("Ready");
+    [ObservableProperty] private string _step1Status = T("NotStarted");
+    [ObservableProperty] private string _step2Status = T("NotStarted");
+    [ObservableProperty] private string _step3Status = T("NotStarted");
 
     public MainWindowViewModel()
     {
         foreach (var source in BuiltInPatchSources)
             BuiltInDownloadOptions.Add(new BuiltInPatchSourceOption(this, source.Name, source.Url));
 
-        if (BuiltInPatchSources.Length > 1) PatchSourceOptions.Add(DownloadSource);
+        if (BuiltInPatchSources.Length > 1) PatchSourceOptions.Add(CreatePatchSourceOption(DownloadSource));
 
-        PatchSourceOptions.Add(CustomSource);
-        PatchSourceOptions.Add(LocalSource);
+        PatchSourceOptions.Add(CreatePatchSourceOption(CustomSource));
+        PatchSourceOptions.Add(CreatePatchSourceOption(LocalSource));
 
         if (HasMultipleBuiltInPatchUrls)
         {
             IsAutoBuiltInSourceSelected = true;
             SelectBuiltInPatchSource(string.Empty);
-            SelectedPatchSource = DownloadSource;
+            SelectedPatchSourceOption = GetPatchSourceOption(DownloadSource);
         }
         else
         {
             SyncBuiltInPatchSourceSelection();
-            SelectedPatchSource = CustomSource;
+            SelectedPatchSourceOption = GetPatchSourceOption(CustomSource);
         }
 
         GamePath = NormalizePath(GetDetectedGamePath());
-        if (!string.IsNullOrWhiteSpace(GamePath)) Step1Status = "已定位";
+        if (!string.IsNullOrWhiteSpace(GamePath)) Step1Status = T("Located");
 
         var autoPatch = FindAutoSelectedPatchPath();
         if (!string.IsNullOrWhiteSpace(autoPatch))
         {
             LocalPatchPath = autoPatch;
-            SelectedPatchSource = LocalSource;
+            SelectedPatchSourceOption = GetPatchSourceOption(LocalSource);
         }
 
         _sourceProbeTask = null;
+        _ = CheckProgramUpdateAsync();
     }
 
-    public ObservableCollection<string> PatchSourceOptions { get; } = [];
+    public ObservableCollection<PatchSourceOption> PatchSourceOptions { get; } = [];
     public ObservableCollection<BuiltInPatchSourceOption> BuiltInDownloadOptions { get; } = [];
 
-    public bool UseDownloadSource => string.Equals(SelectedPatchSource, DownloadSource, StringComparison.Ordinal);
-    public bool UseCustomSource => string.Equals(SelectedPatchSource, CustomSource, StringComparison.Ordinal);
+    public bool UseDownloadSource => string.Equals(SelectedPatchSourceOption?.Key, DownloadSource, StringComparison.Ordinal);
+    public bool UseCustomSource => string.Equals(SelectedPatchSourceOption?.Key, CustomSource, StringComparison.Ordinal);
     public bool UseRemoteSource => UseDownloadSource || UseCustomSource;
-    public bool UseLocalSource => string.Equals(SelectedPatchSource, LocalSource, StringComparison.Ordinal);
-    public bool HasMultipleBuiltInPatchUrls => BuiltInDownloadOptions.Count > 1;
+    public bool UseLocalSource => string.Equals(SelectedPatchSourceOption?.Key, LocalSource, StringComparison.Ordinal);
+    private bool HasMultipleBuiltInPatchUrls => BuiltInDownloadOptions.Count > 1;
     public bool ShowDownloadUrlInput => UseCustomSource || (UseDownloadSource && !HasMultipleBuiltInPatchUrls);
     public bool ShowBuiltInSourceSelector => UseDownloadSource && HasMultipleBuiltInPatchUrls;
     public bool IsLocalPatchReady => IsSupportedPatchFile(LocalPatchPath) && File.Exists(NormalizePath(LocalPatchPath));
@@ -110,31 +113,68 @@ public partial class MainWindowViewModel : ObservableObject
     public bool ShowLocalInstallButton => UseLocalSource && IsLocalPatchReady;
     public bool ShowSelectPatchButton => UseLocalSource;
     public bool CanCancelInstall => IsBusy;
-    public bool IsStep1Active => string.Equals(Step1Status, "定位中", StringComparison.Ordinal);
-    public bool IsStep2Active => string.Equals(Step2Status, "下载中", StringComparison.Ordinal);
+    public bool IsStep1Active => string.Equals(Step1Status, T("Locating"), StringComparison.Ordinal);
+    public bool IsStep2Active => string.Equals(Step2Status, T("Downloading"), StringComparison.Ordinal);
 
-    public bool IsStep3Active => string.Equals(Step3Status, "解压中", StringComparison.Ordinal) ||
-                                 string.Equals(Step3Status, "安装中", StringComparison.Ordinal);
+    public bool IsStep3Active => string.Equals(Step3Status, T("Extracting"), StringComparison.Ordinal) ||
+                                 string.Equals(Step3Status, T("Installing"), StringComparison.Ordinal);
 
-    public bool IsStep1Completed => string.Equals(Step1Status, "完成", StringComparison.Ordinal) ||
-                                    string.Equals(Step1Status, "已定位", StringComparison.Ordinal);
+    public bool IsStep1Completed => string.Equals(Step1Status, T("Completed"), StringComparison.Ordinal) ||
+                                    string.Equals(Step1Status, T("Located"), StringComparison.Ordinal);
 
-    public bool IsStep2Completed => string.Equals(Step2Status, "完成", StringComparison.Ordinal) ||
-                                    string.Equals(Step2Status, "已选择", StringComparison.Ordinal);
+    public bool IsStep2Completed => string.Equals(Step2Status, T("Completed"), StringComparison.Ordinal) ||
+                                    string.Equals(Step2Status, T("Selected"), StringComparison.Ordinal);
 
-    public bool IsStep3Completed => string.Equals(Step3Status, "完成", StringComparison.Ordinal);
+    public bool IsStep3Completed => string.Equals(Step3Status, T("Completed"), StringComparison.Ordinal);
 
-    public string ProductName => InstallerBuildConfig.ProductName;
-    public string DisplayVersion => InstallerBuildConfig.DisplayVersion;
+    public static string ProductName => InstallerBuildConfig.ProductName;
+    public static string DisplayVersion => InstallerBuildConfig.DisplayVersion;
+    public string SubtitleText => T("Subtitle");
+    public string DownloadUrlWatermarkText => T("DownloadUrlWatermark");
+    public string AutoText => T("Auto");
+    public string InstallText => T("Install");
+    public string PatchWatermarkText => T("PatchWatermark");
+    public string SelectPatchText => T("SelectPatch");
+    public string GamePathText => T("GamePath");
+    public string GamePathWatermarkText => T("GamePathWatermark");
+    public string LocateText => T("Locate");
+    public string InstallProgressText => T("InstallProgress");
+    public string CancelDownloadText => T("CancelDownload");
+    public string LocateGameText => T("LocateGame");
+    public string GetPatchText => T("GetPatch");
+    public string ExtractInstallText => T("ExtractInstall");
 
     private static string? GetDetectedGamePath()
     {
-        return OperatingSystem.IsWindows()
-            ? SteamLocator.FindGamePath()
-            : null;
+        return SteamLocator.FindGamePath();
     }
 
-    partial void OnSelectedPatchSourceChanged(string value)
+    public void SelectLocalPatchSource()
+    {
+        SelectedPatchSourceOption = GetPatchSourceOption(LocalSource);
+    }
+
+    private static string T(string key)
+    {
+        return LocalizationService.Get(key);
+    }
+
+    private static PatchSourceOption CreatePatchSourceOption(string key)
+    {
+        return new PatchSourceOption(key, key switch
+        {
+            DownloadSource => T("DownloadSource"),
+            LocalSource => T("LocalSource"),
+            _ => T("CustomSource")
+        });
+    }
+
+    private PatchSourceOption? GetPatchSourceOption(string key)
+    {
+        return PatchSourceOptions.FirstOrDefault(option => string.Equals(option.Key, key, StringComparison.Ordinal));
+    }
+
+    partial void OnSelectedPatchSourceOptionChanged(PatchSourceOption? value)
     {
         OnPropertyChanged(nameof(UseDownloadSource));
         OnPropertyChanged(nameof(UseCustomSource));
@@ -249,9 +289,9 @@ public partial class MainWindowViewModel : ObservableObject
         DownloadProgress = 0;
         DownloadText = "准备处理";
         DownloadSpeedText = string.Empty;
-        Step1Status = "已定位";
-        Step2Status = "下载中";
-        Step3Status = "未执行";
+        Step1Status = T("Located");
+        Step2Status = T("Downloading");
+        Step3Status = T("NotStarted");
         StatusText = "开始安装";
 
         var workingRoot = Path.Combine(Path.GetTempPath(), "PatchInstaller");
@@ -271,7 +311,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 archivePath = localPatch;
                 LocalPatchPath = archivePath;
-                Step2Status = "已选择";
+                Step2Status = T("Selected");
                 DownloadText = "使用本地补丁";
                 DownloadProgress = 100;
             }
@@ -292,7 +332,7 @@ public partial class MainWindowViewModel : ObservableObject
                 throw new InvalidOperationException("无法读取补丁文件，可能是下载过程中发生了损坏。请重试。");
             }
 
-            if (!useLocalPatch) Step2Status = "完成";
+            if (!useLocalPatch) Step2Status = T("Completed");
             StatusText = "正在解压补丁";
             Step3Status = "解压中";
             DownloadProgress = 0;
@@ -309,22 +349,23 @@ public partial class MainWindowViewModel : ObservableObject
             var copied = await ElevationHelper.CopyWithElevationFallbackAsync(sourceRoot, GamePath);
             if (!copied) throw new InvalidOperationException("覆盖安装失败，可能是权限不足或管理员授权被取消。");
 
-            Step3Status = "完成";
+            Step3Status = T("Completed");
             StatusText = "补丁安装完成";
             DownloadText = "处理完成";
-            DownloadSpeedText = string.Empty;
+            DownloadSpeedText = string.Empty; 
+            await DialogService.ShowSuccessAsync();
         }
         catch (OperationCanceledException)
         {
             if (IsStep2Active)
-                Step2Status = "已取消";
-            else if (IsStep3Active) Step3Status = "已取消";
+                Step2Status = T("Canceled");
+            else if (IsStep3Active) Step3Status = T("Canceled");
 
             ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
             DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "安装已停止";
             DownloadProgress = 0;
-            DownloadText = "已取消";
+            DownloadText = T("Canceled");
             DownloadSpeedText = string.Empty;
         }
         catch (Exception ex)
@@ -332,14 +373,14 @@ public partial class MainWindowViewModel : ObservableObject
             if (_installCancellationTokenSource?.IsCancellationRequested == true)
             {
                 if (IsStep2Active)
-                    Step2Status = "已取消";
-                else if (IsStep3Active) Step3Status = "已取消";
+                    Step2Status = T("Canceled");
+                else if (IsStep3Active) Step3Status = T("Canceled");
 
                 ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
                 DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
                 StatusText = "安装已停止";
                 DownloadProgress = 0;
-                DownloadText = "已取消";
+                DownloadText = T("Canceled");
                 DownloadSpeedText = string.Empty;
                 Debug.WriteLine(ex);
                 return;
@@ -347,16 +388,16 @@ public partial class MainWindowViewModel : ObservableObject
 
             if (IsPatchAcquisitionFailure(ex, archivePath))
             {
-                Step2Status = "失败";
-                if (!IsStep3Completed) Step3Status = "未执行";
+                Step2Status = T("Failed");
+                if (!IsStep3Completed) Step3Status = T("NotStarted");
             }
             else if (IsStep2Active)
             {
-                Step2Status = "失败";
+                Step2Status = T("Failed");
             }
             else if (IsStep3Active)
             {
-                Step3Status = "失败";
+                Step3Status = T("Failed");
             }
 
             ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
@@ -375,7 +416,7 @@ public partial class MainWindowViewModel : ObservableObject
 
             CleanupWorkingDirectory(workingRoot);
 
-            _installCancellationTokenSource.Dispose();
+            _installCancellationTokenSource?.Dispose();
             _installCancellationTokenSource = null;
             IsBusy = false;
             CanInstall = true;
@@ -819,9 +860,48 @@ public partial class MainWindowViewModel : ObservableObject
         Directory.CreateDirectory(extractPath);
     }
 
+    private async Task CheckProgramUpdateAsync()
+    {
+        if (!InstallerBuildConfig.HasCheckUpdateApi) return;
+
+        try
+        {
+            var result = await UpdateService.CheckAsync(CancellationToken.None);
+            if (result.IsAvailable && !string.IsNullOrWhiteSpace(result.DownloadUrl))
+            {
+                await InstallProgramUpdateAsync(result.DownloadUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
+    }
+
+    private async Task InstallProgramUpdateAsync(string downloadUrl)
+    {
+        var shouldUpdate = await DialogService.ShowUpdateAvailableAsync(downloadUrl);
+        if (!shouldUpdate) return;
+
+        StatusText = "正在下载程序更新";
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+                return;
+            }
+
+            Environment.Exit(0);
+        });
+    }
+
     private sealed record BuiltInPatchSourceDefinition(string Name, string Url);
 
     private sealed record DownloadCandidate(string Name, Uri Uri);
+
+    public sealed record PatchSourceOption(string Key, string DisplayName);
 
     public partial class BuiltInPatchSourceOption(MainWindowViewModel owner, string name, string url) : ObservableObject
     {

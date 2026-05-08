@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Auto" xml:space="preserve"><value>自動</value></data>
+  <data name="Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="CancelDownload" xml:space="preserve"><value>取消下載</value></data>
+  <data name="Canceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="CancelingUpdate" xml:space="preserve"><value>正在取消更新。</value></data>
+  <data name="Completed" xml:space="preserve"><value>完成</value></data>
+  <data name="Continue" xml:space="preserve"><value>繼續</value></data>
+  <data name="CurrentMd5" xml:space="preserve"><value>目前 MD5：</value></data>
+  <data name="CustomSource" xml:space="preserve"><value>下載連結</value></data>
+  <data name="DownloadedUpdate" xml:space="preserve"><value>更新已下載完成，正在重新啟動程式。</value></data>
+  <data name="Downloading" xml:space="preserve"><value>下載中</value></data>
+  <data name="DownloadingBytes" xml:space="preserve"><value>正在下載</value></data>
+  <data name="DownloadingUpdate" xml:space="preserve"><value>正在下載更新，請稍候。下載完成後程式會自動重新啟動。</value></data>
+  <data name="DownloadSource" xml:space="preserve"><value>下載源</value></data>
+  <data name="DownloadUrlWatermark" xml:space="preserve"><value>請輸入下載連結</value></data>
+  <data name="English" xml:space="preserve"><value>英文</value></data>
+  <data name="Extracting" xml:space="preserve"><value>解壓中</value></data>
+  <data name="ExtractInstall" xml:space="preserve"><value>解壓安裝</value></data>
+  <data name="Failed" xml:space="preserve"><value>失敗</value></data>
+  <data name="GamePath" xml:space="preserve"><value>遊戲目錄</value></data>
+  <data name="GamePathWatermark" xml:space="preserve"><value>請選擇遊戲安裝目錄</value></data>
+  <data name="GetPatch" xml:space="preserve"><value>取得補丁</value></data>
+  <data name="Install" xml:space="preserve"><value>一鍵安裝</value></data>
+  <data name="Installing" xml:space="preserve"><value>安裝中</value></data>
+  <data name="InstallProgress" xml:space="preserve"><value>安裝進度:</value></data>
+  <data name="LanguageEnglish" xml:space="preserve"><value>English</value></data>
+  <data name="LanguageSimplifiedChinese" xml:space="preserve"><value>簡體中文</value></data>
+  <data name="LanguageTraditionalChinese" xml:space="preserve"><value>繁體中文</value></data>
+  <data name="LatestVersion" xml:space="preserve"><value>更新狀態：目前已是最新版本。</value></data>
+  <data name="LocalSource" xml:space="preserve"><value>本機補丁</value></data>
+  <data name="Locate" xml:space="preserve"><value>手動定位</value></data>
+  <data name="Located" xml:space="preserve"><value>已定位</value></data>
+  <data name="LocateGame" xml:space="preserve"><value>定位遊戲</value></data>
+  <data name="Locating" xml:space="preserve"><value>定位中</value></data>
+  <data name="NotFound" xml:space="preserve"><value>未找到</value></data>
+  <data name="NotStarted" xml:space="preserve"><value>未執行</value></data>
+  <data name="Ok" xml:space="preserve"><value>確定</value></data>
+  <data name="PatchWatermark" xml:space="preserve"><value>請選擇 zip / rar / 7z</value></data>
+  <data name="Platform" xml:space="preserve"><value>平台：</value></data>
+  <data name="ProgramUpdateCheck" xml:space="preserve"><value>程式更新檢查</value></data>
+  <data name="Ready" xml:space="preserve"><value>準備就緒</value></data>
+  <data name="SelectLanguageSubtitle" xml:space="preserve"><value>請選擇程式顯示語言</value></data>
+  <data name="SelectLanguageTitle" xml:space="preserve"><value>選擇語言 / Select language</value></data>
+  <data name="SelectPatch" xml:space="preserve"><value>重新選擇補丁</value></data>
+  <data name="Selected" xml:space="preserve"><value>已選擇</value></data>
+  <data name="Subtitle" xml:space="preserve"><value>從連結下載，或直接使用本機 zip / rar 補丁包進行安裝</value></data>
+  <data name="SuccessMessage" xml:space="preserve"><value>補丁已成功安裝！</value></data>
+  <data name="SuccessTitle" xml:space="preserve"><value>安裝成功</value></data>
+  <data name="UpdateAvailable" xml:space="preserve"><value>偵測到補丁安裝器有新版本：</value></data>
+  <data name="UpdateAvailableTitle" xml:space="preserve"><value>發現新版本</value></data>
+  <data name="UpdateCheckFailed" xml:space="preserve"><value>更新檢查失敗：</value></data>
+  <data name="UpdateFailed" xml:space="preserve"><value>更新失敗：</value></data>
+  <data name="UpdateLater" xml:space="preserve"><value>暫不更新</value></data>
+  <data name="UpdateNow" xml:space="preserve"><value>立即更新</value></data>
+  <data name="UpdateUnavailable" xml:space="preserve"><value>更新檢查失敗，介面不可用或回傳內容無效。</value></data>
+  <data name="Waiting" xml:space="preserve"><value>等待開始</value></data>
+</root>

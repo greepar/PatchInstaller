@@ -37,10 +37,7 @@ internal static class PatchDownloader
 {
     private const int ProbeSampleBytes = 20 * 1024 * 1024;
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(8);
-    private static readonly HttpClient HttpClient = new()
-    {
-        Timeout = Timeout.InfiniteTimeSpan
-    };
+    private static readonly HttpClient HttpClient = HttpClientService.Create(Timeout.InfiniteTimeSpan);
 
     public static async Task DownloadAsync(
         Uri url,
@@ -78,7 +75,7 @@ internal static class PatchDownloader
                     Accept = "*/*",
                     KeepAlive = true,
                     ProtocolVersion = HttpVersion.Version11,
-                    UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0 Safari/537.36"
+                    UserAgent = InstallerBuildConfig.UserAgent
                 }
             };
 

@@ -2,5 +2,6 @@
   "productName": "PatchInstaller",
   "defaultPatchUrl": "主源|https://example.com/patch/latest.zip;镜像源|https://mirror.example.com/patch/latest.zip",
   "patchFilePrefix": "Patch",
-  "steamGameFolderName": "YourSteamGameFolder"
+  "steamGameFolderName": "YourSteamGameName",
+  "checkUpdateApi": "https://api.example.com/version"
 }

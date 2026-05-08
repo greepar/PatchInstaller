@@ -1,8 +1,13 @@
 using System.Diagnostics;
 using System.Linq;
+using System;
+using System.Globalization;
+using System.Threading.Tasks;
+using Avalonia.Animation.Easings;
 using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using PatchInstaller.Services;
 using SukiUI.Controls;
 using SukiUI.Dialogs;
 
@@ -11,14 +16,68 @@ namespace PatchInstaller;
 public partial class MainWindow : SukiWindow
 {
     private const string ProjectGithubUrl = "https://github.com/greepar/PatchInstaller";
+    private int _versionClickCount;
+    private bool _isManualUpdateCheckRunning;
+    private DateTime _lastVersionClickAt = DateTime.MinValue;
 
     public MainWindow()
     {
         InitializeComponent();
         DialogHost.Manager = DialogManager;
+        LanguageComboBox.SelectedIndex = GetDefaultLanguageIndex();
     }
 
     public static ISukiDialogManager DialogManager { get; } = new SukiDialogManager();
+
+    private async void ConfirmLanguageSelection(object? sender, RoutedEventArgs e)
+    {
+        LanguageComboBox.IsEnabled = false;
+        if (sender is Avalonia.Controls.Control control) control.IsEnabled = false;
+
+        var language = LanguageComboBox.SelectedIndex switch
+        {
+            1 => AppLanguage.TraditionalChinese,
+            2 => AppLanguage.English,
+            _ => AppLanguage.SimplifiedChinese
+        };
+
+        await SelectLanguageAsync(language);
+    }
+
+    private static int GetDefaultLanguageIndex()
+    {
+        var cultureName = CultureInfo.CurrentUICulture.Name;
+        if (cultureName.Equals("zh-TW", StringComparison.OrdinalIgnoreCase) ||
+            cultureName.Equals("zh-HK", StringComparison.OrdinalIgnoreCase) ||
+            cultureName.Equals("zh-MO", StringComparison.OrdinalIgnoreCase) ||
+            cultureName.StartsWith("zh-Hant", StringComparison.OrdinalIgnoreCase))
+        {
+            return 1;
+        }
+
+        return cultureName.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? 0 : 2;
+    }
+
+    private async Task SelectLanguageAsync(AppLanguage language)
+    {
+        LocalizationService.CurrentLanguage = language;
+        DataContext = new MainWindowViewModel();
+        LanguageOverlay.IsHitTestVisible = false;
+
+        const int steps = 26;
+        var easing = new CubicEaseIn();
+        for (var i = 1; i <= steps; i++)
+        {
+            var progress = i / (double)steps;
+            LanguageOverlay.Opacity = 1d - easing.Ease(progress);
+            await Task.Delay(24);
+        }
+
+        LanguageOverlay.Opacity = 0;
+        LanguageOverlay.IsVisible = false;
+        MainContent.Opacity = 1;
+        MainContent.IsHitTestVisible = true;
+    }
 
     private void OpenProjectGithub(object? sender, RoutedEventArgs e)
     {
@@ -35,7 +94,7 @@ public partial class MainWindow : SukiWindow
 
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "选择游戏目录",
+            Title = LocalizationService.Get("GamePathWatermark"),
             AllowMultiple = false
         });
 
@@ -43,8 +102,8 @@ public partial class MainWindow : SukiWindow
         if (folder is null) return;
 
         viewModel.GamePath = folder.TryGetLocalPath() ?? folder.Path.LocalPath;
-        viewModel.StatusText = "已手动选择游戏目录";
-        viewModel.Step1Status = "已定位";
+        viewModel.StatusText = LocalizationService.Get("Located");
+        viewModel.Step1Status = LocalizationService.Get("Located");
     }
 
     private async void ManualSelectPatch(object? sender, RoutedEventArgs e)
@@ -53,11 +112,11 @@ public partial class MainWindow : SukiWindow
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "选择补丁压缩包",
+            Title = LocalizationService.Get("SelectPatch"),
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("支持的补丁格式")
+                new FilePickerFileType(LocalizationService.Get("PatchWatermark"))
                 {
                     Patterns = ["*.7z", "*.zip", "*.rar", "*.zip.001", "*.rar.001"]
                 }
@@ -68,9 +127,9 @@ public partial class MainWindow : SukiWindow
         if (file is null) return;
 
         viewModel.LocalPatchPath = file.TryGetLocalPath() ?? file.Path.LocalPath;
-        viewModel.SelectedPatchSource = MainWindowViewModel.LocalSource;
-        viewModel.StatusText = "已手动选择补丁";
-        viewModel.Step2Status = "已选择";
+        viewModel.SelectLocalPatchSource();
+        viewModel.StatusText = LocalizationService.Get("Selected");
+        viewModel.Step2Status = LocalizationService.Get("Selected");
     }
 
     private void ProbeBuiltInSource(object? sender, PointerEventArgs e)
@@ -79,5 +138,54 @@ public partial class MainWindow : SukiWindow
         if (sender is not Avalonia.Controls.Control { DataContext: MainWindowViewModel.BuiltInPatchSourceOption option }) return;
 
         viewModel.StartBuiltInSourceProbe(option);
+    }
+
+    private async void VersionTextPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastVersionClickAt > TimeSpan.FromSeconds(2))
+        {
+            _versionClickCount = 0;
+        }
+
+        _lastVersionClickAt = now;
+        _versionClickCount++;
+        e.Handled = true;
+
+        if (_versionClickCount < 3 || _isManualUpdateCheckRunning) return;
+
+        _versionClickCount = 0;
+        _isManualUpdateCheckRunning = true;
+
+        var md5 = UpdateService.GetCurrentMd5() ?? LocalizationService.Get("Failed");
+        var platform = UpdateService.GetPlatformName();
+
+        if (!InstallerBuildConfig.HasCheckUpdateApi)
+        {
+            await DialogService.ShowManualUpdateInfoAsync(md5, platform);
+            _isManualUpdateCheckRunning = false;
+            return;
+        }
+
+        try
+        {
+            var result = await UpdateService.CheckAsync(default);
+            await DialogService.ShowManualUpdateCheckAsync(md5, platform, result);
+
+            if (result.IsAvailable && !string.IsNullOrWhiteSpace(result.DownloadUrl))
+            {
+                var shouldRestart = await DialogService.ShowUpdateAvailableAsync(result.DownloadUrl);
+                if (shouldRestart) Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+            await DialogService.ShowManualUpdateCheckFailedAsync(md5, platform, ex.Message);
+        }
+        finally
+        {
+            _isManualUpdateCheckRunning = false;
+        }
     }
 }
