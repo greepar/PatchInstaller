@@ -5,6 +5,7 @@
 ![demo](demo.webp)
 
 支持两种配置方式：
+
 - 编译期配置：修改 [InstallerConfig.props](PatchInstaller/Build/InstallerConfig.props)
 - 运行时配置：在程序同目录放一个 `PatchInstaller.json`，无需重新编译
 
@@ -19,18 +20,18 @@
 <Project>
   <PropertyGroup>
     <InstallerName>PatchInstaller</InstallerName>
-    <DefaultPatchUrl>主源|https://patch-1.example.com/latest.zip;镜像源|https://patch-2.example.com/latest.zip</DefaultPatchUrl>
-    <PatchFilePrefix>KissMeEveryday</PatchFilePrefix>
-    <SteamGameFolderName>Mainichi Kiss</SteamGameFolderName>
+    <DefaultPatchUrl>主源|https://patch-1.example.com/latest.zip</DefaultPatchUrl>
+    <PatchFilePrefix>Patch</PatchFilePrefix>
+    <SteamGameFolderName>Mainichikisushite</SteamGameFolderName>
     <CheckUpdateApi></CheckUpdateApi>
   </PropertyGroup>
 </Project>
 ```
 
 字段说明：
+
 - `InstallerName`：界面主标题
-- `DefaultPatchUrl`：默认补丁下载链接，可留空；多个源可用 `;` 分隔，每项可写成 `名称|链接`
-  为空时界面不显示“下载源”选项，只保留可手动输入的“下载链接”
+- `DefaultPatchUrl`：默认补丁下载链接，可留空；可输入单个链接；多个源可用 `;` 分隔，每项可写成 `名称|链接`
 - `PatchFilePrefix`：自动识别本地补丁时的文件名前缀(适合自带补丁压缩包)
 - `SteamGameFolderName`：Steam 游戏名或游戏目录名，用于自动定位
 - `CheckUpdateApi`：补丁安装器自身更新检查接口，可留空关闭检查
@@ -61,14 +62,15 @@ PatchInstaller.json
 ```
 
 支持字段：
-- `productName`：标题与产品名
-- `defaultPatchUrl`：默认下载链接或直链；多个源可用 `;` 分隔，每项可写成 `名称|链接`
-  为空时界面不显示“下载源”选项，只保留可手动输入的“下载链接”
-- `patchFilePrefix`：自动识别本地补丁时的前缀
-- `steamGameFolderName`：Steam 游戏名或游戏目录名
+
+- `productName`：界面主标题
+- `defaultPatchUrl`：默认补丁下载链接，可留空；可输入单个链接；多个源可用 `;` 分隔，每项可写成 `名称|链接`
+- `patchFilePrefix`：自动识别本地补丁时的文件名前缀(适合自带补丁压缩包)
+- `steamGameFolderName`：Steam 游戏名或游戏目录名，用于自动定位
 - `checkUpdateApi`：补丁安装器自身更新检查接口，可留空关闭检查
 
 读取优先级：
+
 1. `PatchInstaller.json`
 2. `installer.json`
 3. `InstallerConfig.props`
@@ -79,6 +81,7 @@ PatchInstaller.json
 [avalonia-logo.ico](PatchInstaller/Assets/avalonia-logo.ico)
 
 修改方式：
+
 1. 准备一个 `.ico` 文件
 2. 直接替换默认图标文件
 3. 或修改 [PatchInstaller.csproj](PatchInstaller/PatchInstaller.csproj) 里的：
@@ -100,6 +103,7 @@ PatchInstaller.json
 适合不想在本地装完整环境。
 
 步骤：
+
 1. Fork 这个仓库
 2. 修改 [InstallerConfig.props](PatchInstaller/Build/InstallerConfig.props)，或者准备运行时 `PatchInstaller.json`
 3. 如有需要，替换图标
@@ -110,6 +114,7 @@ PatchInstaller.json
 ### 方法二：下载到电脑上，用 `dotnet publish` 本地构建
 
 要求：
+
 - Windows
 - .NET 10 SDK
 - Visual Studio C++ 工具链 / Build Tools
@@ -137,6 +142,7 @@ dotnet publish .\PatchInstaller\PatchInstaller.csproj -c Release -r win-x64
 ### 本地补丁自动识别
 
 程序启动时会自动扫描程序同目录下：
+
 - `patchFilePrefix*.zip`
 - `patchFilePrefix*.rar`
 - `patchFilePrefix*.7z`

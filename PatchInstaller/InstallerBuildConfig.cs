@@ -33,7 +33,7 @@ internal static class InstallerBuildConfig
 
     public static string SteamGameFolderName => GetValue(
         [Runtime?.SteamGameFolderName, GetMetadata("SteamGameFolderName")],
-        "Mainichikisushite");
+        string.Empty);
 
     public static string CheckUpdateApi => GetValue(
         [Runtime?.CheckUpdateApi, GetMetadata("CheckUpdateApi")],

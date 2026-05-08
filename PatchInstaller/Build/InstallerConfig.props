@@ -1,9 +1,18 @@
 <Project>
   <PropertyGroup>
+    <!-- 程序标题 -->
     <InstallerName>PatchInstaller</InstallerName>
+
+    <!-- 默认补丁下载链接，可留空 -->
     <DefaultPatchUrl>主源|https://patch-1.example.com/latest.zip;镜像源|https://patch-2.example.com/latest.zip</DefaultPatchUrl>
-    <PatchFilePrefix>KissMeEveryday</PatchFilePrefix>
-    <SteamGameFolderName>Mainichi Kiss</SteamGameFolderName>
+    
+    <!-- 自动识别本地补丁时的文件名前缀 -->
+    <PatchFilePrefix>Patch</PatchFilePrefix>
+    
+    <!-- Steam 游戏目录名，用于自动定位 -->
+    <SteamGameFolderName>Game</SteamGameFolderName>
+    
+    <!-- 补丁安装器自身更新检查接口，可留空关闭检查 -->
     <CheckUpdateApi></CheckUpdateApi>
   </PropertyGroup>
 </Project>

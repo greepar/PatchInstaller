@@ -277,7 +277,7 @@
             <TextBlock HorizontalAlignment="Center"
                        FontSize="28"
                        FontWeight="Bold"
-                       Text="显示语言 / Display language" />
+                       Text="选择语言 / Select language" />
             <ComboBox Width="300"
                       Name="LanguageComboBox"
                       MinHeight="52"
