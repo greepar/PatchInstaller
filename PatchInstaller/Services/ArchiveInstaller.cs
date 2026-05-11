@@ -16,7 +16,7 @@ internal static partial class ArchiveInstaller
 {
     private static readonly Regex MultipartArchiveRegex = MyRegex();
 
-    public static bool IsArchiveValid(string archivePath)
+    public static bool IsArchiveValid(string archivePath, string? temporaryDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath))
         {
@@ -25,7 +25,7 @@ internal static partial class ArchiveInstaller
 
         try
         {
-            using var preparedArchive = PrepareArchiveForRead(archivePath);
+            using var preparedArchive = PrepareArchiveForRead(archivePath, temporaryDirectory);
 
             switch (preparedArchive.ArchiveExtension)
             {
@@ -65,7 +65,8 @@ internal static partial class ArchiveInstaller
     public static async Task ExtractAsync(
         string archivePath,
         string extractPath,
-        Action<int, int, string>? progress = null)
+        Action<int, int, string>? progress = null,
+        string? temporaryDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(archivePath))
             throw new ArgumentException("archivePath 不能为空", nameof(archivePath));
@@ -75,7 +76,7 @@ internal static partial class ArchiveInstaller
 
         Directory.CreateDirectory(extractPath);
 
-        using var preparedArchive = PrepareArchiveForRead(archivePath);
+        using var preparedArchive = PrepareArchiveForRead(archivePath, temporaryDirectory);
 
         await (preparedArchive.ArchiveExtension switch
         {
@@ -200,7 +201,7 @@ internal static partial class ArchiveInstaller
         return match.Success && string.Equals(match.Groups[2].Value, "001", StringComparison.Ordinal);
     }
 
-    private static PreparedArchive PrepareArchiveForRead(string archivePath)
+    private static PreparedArchive PrepareArchiveForRead(string archivePath, string? temporaryDirectory = null)
     {
         if (!TryGetArchiveExtension(archivePath, out var archiveExtension))
         {
@@ -218,9 +219,12 @@ internal static partial class ArchiveInstaller
             throw new FileNotFoundException($"缺少分片文件: {Path.GetFileName(nextSegmentPath)}", nextSegmentPath);
         }
 
+        var combineDirectory = string.IsNullOrWhiteSpace(temporaryDirectory)
+            ? Path.GetDirectoryName(archivePath) ?? Path.GetTempPath()
+            : temporaryDirectory;
+
         var combinedArchivePath = Path.Combine(
-            Path.GetTempPath(),
-            "PatchInstaller",
+            combineDirectory,
             "multipart",
             $"{Path.GetFileNameWithoutExtension(archivePath)}-{Guid.NewGuid():N}{archiveExtension}");
 

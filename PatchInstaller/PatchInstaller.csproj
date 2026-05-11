@@ -59,7 +59,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="SharpCompress" Version="0.47.0" />
+        <PackageReference Include="SharpCompress" Version="0.48.0" />
         <PackageReference Include="SkiaSharp" Version="3.119.2" />
         <PackageReference Include="SukiUI" Version="6.0.4-nightly20260328" />
         <PackageReference Include="VC-LTL" Version="5.2.2" />

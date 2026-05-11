@@ -304,7 +304,7 @@ public partial class MainWindowViewModel : ObservableObject
         Step3Status = T("NotStarted");
         StatusText = "开始安装";
 
-        var workingRoot = Path.Combine(Path.GetTempPath(), "PatchInstaller");
+        var workingRoot = Path.Combine(GamePath, ".temp");
         var extractPath = Path.Combine(workingRoot, "extracted");
         var temporaryDownloadPath = string.Empty;
         string? archivePath = null;
@@ -334,7 +334,7 @@ public partial class MainWindowViewModel : ObservableObject
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             // 验证压缩包是否能被正常读取，避免后续解压时才发现问题
-            if (!ArchiveInstaller.IsArchiveValid(archivePath))
+            if (!ArchiveInstaller.IsArchiveValid(archivePath, workingRoot))
             {
                 DownloadProgress = 0;
                 DownloadText = "";
@@ -348,7 +348,7 @@ public partial class MainWindowViewModel : ObservableObject
             DownloadProgress = 0;
             DownloadText = string.Format(T("ExtractingProgress"), 0d, 0, 0);
             DownloadSpeedText = string.Empty;
-            await ArchiveInstaller.ExtractAsync(archivePath, extractPath, ReportExtractProgress);
+            await ArchiveInstaller.ExtractAsync(archivePath, extractPath, ReportExtractProgress, workingRoot);
 
             _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
@@ -468,7 +468,7 @@ public partial class MainWindowViewModel : ObservableObject
                     }),
                     cancellationToken);
 
-                if (ArchiveInstaller.IsArchiveValid(downloadPath))
+                if (ArchiveInstaller.IsArchiveValid(downloadPath, Path.GetDirectoryName(downloadPath)))
                 {
                     DownloadProgress = 100;
                     DownloadText = string.Format(T("DownloadedFromSource"), sourceLabel);
