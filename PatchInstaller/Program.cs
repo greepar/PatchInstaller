@@ -20,6 +20,10 @@ public static class Program
                 RenderingMode = [Win32RenderingMode.AngleEgl,Win32RenderingMode.Software],
                 DpiAwareness = Win32DpiAwareness.PerMonitorDpiAware
             })
+            .With(new AvaloniaNativePlatformOptions()
+            {
+                RenderingMode = [AvaloniaNativeRenderingMode.OpenGl]
+            })
             .StartWithClassicDesktopLifetime(args);
 
         return 0;

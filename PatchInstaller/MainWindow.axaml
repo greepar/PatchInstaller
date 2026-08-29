@@ -105,20 +105,15 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                      <RadioButton GroupName="BuiltInPatchSources"
-                                                                  VerticalAlignment="Center"
-                                                                  Margin="0"
-                                                                  PointerEntered="ProbeBuiltInSource">
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0">
                                                         <RadioButton.IsChecked>
                                                             <Binding Path="IsSelected" />
                                                         </RadioButton.IsChecked>
                                                         <ToolTip.Tip>
-                                                            <StackPanel MaxWidth="420" Spacing="4">
-                                                                <TextBlock TextWrapping="Wrap"
-                                                                           Text="{Binding ProbeTooltip}" />
-                                                                <TextBlock Opacity="0.72"
-                                                                           TextWrapping="Wrap"
-                                                                           Text="{Binding ProbeTooltipStatus}" />
-                                                            </StackPanel>
+                                                            <TextBlock MaxWidth="420"
+                                                                       TextWrapping="Wrap"
+                                                                       Text="{Binding Url}" />
                                                         </ToolTip.Tip>
                                                         <TextBlock FontWeight="SemiBold"
                                                                    Text="{Binding Name}" />

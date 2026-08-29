@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Rar;
@@ -15,6 +17,8 @@ namespace PatchInstaller.Services;
 internal static partial class ArchiveInstaller
 {
     private static readonly Regex MultipartArchiveRegex = MyRegex();
+    private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
+    private static readonly ReaderOptions ZipReaderOptions = CreateZipReaderOptions();
 
     public static bool IsArchiveValid(string archivePath, string? temporaryDirectory = null)
     {
@@ -43,7 +47,7 @@ internal static partial class ArchiveInstaller
                     }
                     return true;
                 case ".zip":
-                    using (var archive = ZipArchive.OpenArchive(preparedArchive.ArchivePath, ReaderOptions.ForFilePath))
+                    using (var archive = ZipArchive.OpenArchive(preparedArchive.ArchivePath, ZipReaderOptions))
                     {
                         return archive.Entries.Any();
                     }
@@ -62,10 +66,32 @@ internal static partial class ArchiveInstaller
         }
     }
 
+    public static async Task ValidateAsync(
+        string archivePath,
+        CancellationToken cancellationToken,
+        string? temporaryDirectory = null)
+    {
+        if (string.IsNullOrWhiteSpace(archivePath))
+            throw new ArgumentException("archivePath 不能为空", nameof(archivePath));
+
+        if (!File.Exists(archivePath))
+            throw new FileNotFoundException("找不到压缩包文件", archivePath);
+
+        using var preparedArchive = PrepareArchiveForRead(archivePath, temporaryDirectory);
+        await (preparedArchive.ArchiveExtension switch
+        {
+            ".7z" => ValidateSevenZipAsync(preparedArchive.ArchivePath, cancellationToken),
+            ".zip" => ValidateEntriesAsync(ZipArchive.OpenArchive(preparedArchive.ArchivePath, ZipReaderOptions), cancellationToken),
+            ".rar" => ValidateEntriesAsync(RarArchive.OpenArchive(preparedArchive.ArchivePath, ReaderOptions.ForFilePath), cancellationToken),
+            _ => Task.FromException(new NotSupportedException($"不支持的补丁格式: {preparedArchive.ArchiveExtension}"))
+        });
+    }
+
     public static async Task ExtractAsync(
         string archivePath,
         string extractPath,
         Action<int, int, string>? progress = null,
+        CancellationToken cancellationToken = default,
         string? temporaryDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(archivePath))
@@ -80,14 +106,56 @@ internal static partial class ArchiveInstaller
 
         await (preparedArchive.ArchiveExtension switch
         {
-            ".7z" => ExtractSevenZipAsync(preparedArchive.ArchivePath, extractPath, progress),
-            ".zip" => ExtractZipAsync(preparedArchive.ArchivePath, extractPath, progress),
-            ".rar" => ExtractRarAsync(preparedArchive.ArchivePath, extractPath, progress),
+            ".7z" => ExtractSevenZipAsync(preparedArchive.ArchivePath, extractPath, progress, cancellationToken),
+            ".zip" => ExtractZipAsync(preparedArchive.ArchivePath, extractPath, progress, cancellationToken),
+            ".rar" => ExtractRarAsync(preparedArchive.ArchivePath, extractPath, progress, cancellationToken),
             _ => Task.FromException(new NotSupportedException($"不支持的补丁格式: {preparedArchive.ArchiveExtension}"))
         });
     }
 
-    private static async Task ExtractSevenZipAsync(string archivePath, string extractPath, Action<int, int, string>? progress)
+    private static async Task ValidateSevenZipAsync(string archivePath, CancellationToken cancellationToken)
+    {
+        await Task.Run(() =>
+        {
+            using var archive = SevenZipArchive.OpenArchive(archivePath, ReaderOptions.ForFilePath);
+            using var reader = archive.ExtractAllEntries();
+            var hasFiles = false;
+            while (reader.MoveToNextEntry())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!reader.Entry.IsDirectory)
+                {
+                    reader.WriteEntryTo(Stream.Null);
+                    hasFiles = true;
+                }
+            }
+
+            if (!hasFiles)
+                throw new InvalidDataException("压缩包不包含任何文件。");
+        }, cancellationToken);
+    }
+
+    private static async Task ValidateEntriesAsync(IArchive archive, CancellationToken cancellationToken)
+    {
+        using (archive)
+        {
+            await Task.Run(() =>
+            {
+                var hasFiles = false;
+                foreach (var entry in archive.Entries.Where(entry => !entry.IsDirectory))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    entry.WriteTo(Stream.Null);
+                    hasFiles = true;
+                }
+
+                if (!hasFiles)
+                    throw new InvalidDataException("压缩包不包含任何文件。");
+            }, cancellationToken);
+        }
+    }
+
+    private static async Task ExtractSevenZipAsync(string archivePath, string extractPath, Action<int, int, string>? progress, CancellationToken cancellationToken)
     {
         await Task.Run(() =>
         {
@@ -99,6 +167,7 @@ internal static partial class ArchiveInstaller
 
             while (reader.MoveToNextEntry())
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (reader.Entry.IsDirectory)
                 {
                     continue;
@@ -113,28 +182,28 @@ internal static partial class ArchiveInstaller
                 completedEntries++;
                 progress?.Invoke(completedEntries, 0, reader.Entry.Key ?? string.Empty);
             }
-        });
+        }, cancellationToken);
     }
 
-    private static async Task ExtractZipAsync(string archivePath, string extractPath, Action<int, int, string>? progress)
+    private static async Task ExtractZipAsync(string archivePath, string extractPath, Action<int, int, string>? progress, CancellationToken cancellationToken)
     {
         await Task.Run(() =>
         {
-            using var archive = ZipArchive.OpenArchive(archivePath, ReaderOptions.ForFilePath);
-            ExtractEntries(archive.Entries, extractPath, progress);
-        });
+            using var archive = ZipArchive.OpenArchive(archivePath, ZipReaderOptions);
+            ExtractEntries(archive.Entries, extractPath, progress, cancellationToken);
+        }, cancellationToken);
     }
 
-    private static async Task ExtractRarAsync(string archivePath, string extractPath, Action<int, int, string>? progress)
+    private static async Task ExtractRarAsync(string archivePath, string extractPath, Action<int, int, string>? progress, CancellationToken cancellationToken)
     {
         await Task.Run(() =>
         {
             using var archive = RarArchive.OpenArchive(archivePath, ReaderOptions.ForFilePath);
-            ExtractEntries(archive.Entries, extractPath, progress);
-        });
+            ExtractEntries(archive.Entries, extractPath, progress, cancellationToken);
+        }, cancellationToken);
     }
 
-    private static void ExtractEntries(System.Collections.Generic.IEnumerable<SharpCompress.Archives.IArchiveEntry> entries, string extractPath, Action<int, int, string>? progress)
+    private static void ExtractEntries(System.Collections.Generic.IEnumerable<SharpCompress.Archives.IArchiveEntry> entries, string extractPath, Action<int, int, string>? progress, CancellationToken cancellationToken)
     {
         var files = entries
             .Where(entry => !entry.IsDirectory)
@@ -146,6 +215,7 @@ internal static partial class ArchiveInstaller
 
         foreach (var entry in files)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             entry.WriteToDirectory(extractPath, new ExtractionOptions
             {
                 ExtractFullPath = true,
@@ -157,18 +227,46 @@ internal static partial class ArchiveInstaller
         }
     }
 
-    public static void CopyDirectory(string sourceDirectory, string targetDirectory)
+    private static ReaderOptions CreateZipReaderOptions()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return ReaderOptions.ForFilePath with
+        {
+            ArchiveEncoding = new ArchiveEncoding
+            {
+                CustomDecoder = (bytes, index, count, type) => type == EncodingType.UTF8
+                    ? Encoding.UTF8.GetString(bytes, index, count)
+                    : DecodeLegacyZipName(bytes, index, count)
+            }
+        };
+    }
+
+    private static string DecodeLegacyZipName(byte[] bytes, int index, int count)
+    {
+        try
+        {
+            return StrictUtf8.GetString(bytes, index, count);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.GetEncoding(936).GetString(bytes, index, count);
+        }
+    }
+
+    public static void CopyDirectory(string sourceDirectory, string targetDirectory, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(targetDirectory);
 
         foreach (var directoryPath in Directory.GetDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var destinationDirectory = directoryPath.Replace(sourceDirectory, targetDirectory, StringComparison.OrdinalIgnoreCase);
             Directory.CreateDirectory(destinationDirectory);
         }
 
         foreach (var filePath in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var destinationFile = filePath.Replace(sourceDirectory, targetDirectory, StringComparison.OrdinalIgnoreCase);
             var destinationFolder = Path.GetDirectoryName(destinationFile);
             if (!string.IsNullOrWhiteSpace(destinationFolder))

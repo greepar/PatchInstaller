@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PatchInstaller.Services;
@@ -11,19 +12,24 @@ internal static class ElevationHelper
 {
     private const string ElevatedCopyFlag = "--elevated-copy";
 
-    public static async Task<bool> CopyWithElevationFallbackAsync(string sourceDirectory, string targetDirectory)
+    public static async Task<bool> CopyWithElevationFallbackAsync(
+        string sourceDirectory,
+        string targetDirectory,
+        CancellationToken cancellationToken)
     {
         try
         {
-            await Task.Run(() => ArchiveInstaller.CopyDirectory(sourceDirectory, targetDirectory));
+            await Task.Run(() => ArchiveInstaller.CopyDirectory(sourceDirectory, targetDirectory, cancellationToken), cancellationToken);
             return true;
         }
         catch (UnauthorizedAccessException)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return await RunElevatedCopyAsync(sourceDirectory, targetDirectory);
         }
         catch (IOException ex) when (IsAccessDenied(ex))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return await RunElevatedCopyAsync(sourceDirectory, targetDirectory);
         }
     }

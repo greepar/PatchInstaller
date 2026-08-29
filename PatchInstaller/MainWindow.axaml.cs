@@ -132,14 +132,6 @@ public partial class MainWindow : SukiWindow
         viewModel.Step2Status = LocalizationService.Get("Selected");
     }
 
-    private void ProbeBuiltInSource(object? sender, PointerEventArgs e)
-    {
-        if (DataContext is not MainWindowViewModel viewModel) return;
-        if (sender is not Avalonia.Controls.Control { DataContext: MainWindowViewModel.BuiltInPatchSourceOption option }) return;
-
-        viewModel.StartBuiltInSourceProbe(option);
-    }
-
     private async void VersionTextPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var now = DateTime.UtcNow;

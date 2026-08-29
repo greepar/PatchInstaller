@@ -4,12 +4,12 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <LangVersion>13</LangVersion>
-        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
         <PublishSingleFile>true</PublishSingleFile>
-        <Version>1.2.2</Version>
-        <FileVersion>1.2.2.0</FileVersion>
-        <AssemblyVersion>1.2.2.0</AssemblyVersion>
-        <InformationalVersion>1.2.2</InformationalVersion>
+        <Version>1.2.3</Version>
+        <FileVersion>1.2.3.0</FileVersion>
+        <AssemblyVersion>1.2.3.0</AssemblyVersion>
+        <InformationalVersion>1.2.3</InformationalVersion>
         <Authors>greepar</Authors>
         <Company>greepar</Company>
         <Product>$(InstallerProductName)</Product>
@@ -30,39 +30,24 @@
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <SelfContained>true</SelfContained>
         <PublishTrimmed>true</PublishTrimmed>
-        <PublishAot>false</PublishAot>
-        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <PublishReadyToRun>false</PublishReadyToRun>
-        <UseNativeAotProps>false</UseNativeAotProps>
+        <PublishAot>true</PublishAot>
     </PropertyGroup>
 
-    <Import Project="Build\NativeAOT.props" Condition="'$(UseNativeAotProps)' == 'true'" />
     <ItemGroup>
         <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="2ndLAB.ANGLE.Static" Version="7151.0.0-10.0.26100.0-1.79e529b" />
-        <PackageReference Include="2ndLAB.SkiaSharp.Static" Version="3.119.0-10.0.26100.0-1.1c7d845" />
+        <PackageReference Include="HotAvalonia" Version="3.1.4" Condition="'$(Configuration)' == 'Debug'" />
+        <PackageReference Include="LightDl" Version="0.4.3" />
+
+        <PackageReference Include="StaticLink.Avalonia" Version="3.119.2-7151.12" />
+        <PackageReference Include="StaticLink.Avalonia.Native" Version="11.3.14.1" />
         <PackageReference Include="Avalonia" Version="11.3.14" />
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.14"/>
-        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.14">
-            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">none</IncludeAssets>
-            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">all</PrivateAssets>
-        </PackageReference>
-        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-        <PackageReference Include="Downloader" Version="5.1.0" />
-        <PackageReference Include="HotAvalonia" Version="3.1.0" />
-        <PackageReference Include="PolySharp" Version="1.15.0">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="SharpCompress" Version="0.48.0" />
-        <PackageReference Include="SkiaSharp" Version="3.119.2" />
-        <PackageReference Include="SukiUI" Version="6.0.4-nightly20260328" />
-        <PackageReference Include="VC-LTL" Version="5.2.2" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.14" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="SharpCompress" Version="0.50.4" />
+        <PackageReference Include="SukiUI" Version="6.0.4-nightly20260507" />
     </ItemGroup>
     
     <ItemGroup>

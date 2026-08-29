@@ -10,7 +10,7 @@
     <PatchFilePrefix>Patch</PatchFilePrefix>
     
     <!-- Steam 游戏目录名，用于自动定位 -->
-    <SteamGameFolderName>Game</SteamGameFolderName>
+    <SteamGameFolderName>Mainichikisushite</SteamGameFolderName>
     
     <!-- 补丁安装器自身更新检查接口，可留空关闭检查 -->
     <CheckUpdateApi></CheckUpdateApi>

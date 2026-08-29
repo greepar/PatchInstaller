@@ -21,9 +21,6 @@ public partial class MainWindowViewModel : ObservableObject
     private const string DownloadSource = "download";
     private const string CustomSource = "custom";
     public const string LocalSource = "local";
-    private const int ParallelDownloadSegments = 8;
-    private const int DownloadRetryCount = 800;
-
     private static readonly string[] SupportedPatchExtensions = [".7z", ".zip", ".rar"];
     private static readonly string[] SupportedMultipartPatterns = ["*.zip.001", "*.rar.001"];
 
@@ -35,13 +32,8 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _downloadSpeedText = string.Empty;
     [ObservableProperty] private string _downloadText = T("Waiting");
     [ObservableProperty] private string _gamePath = string.Empty;
-    [ObservableProperty] private int _sourceProbeCompletedCount;
-
     private CancellationTokenSource? _installCancellationTokenSource;
-    private readonly CancellationTokenSource _sourceProbeCancellationTokenSource = new();
-    private readonly Dictionary<BuiltInPatchSourceOption, Task> _sourceProbeTasks = [];
-    private Task? _sourceProbeTask;
-    private bool _isShowingSourceProbeProgress;
+    private int _installOperationId;
     [ObservableProperty] private bool _isAutoBuiltInSourceSelected;
     [ObservableProperty] private bool _isBusy;
 
@@ -96,7 +88,6 @@ public partial class MainWindowViewModel : ObservableObject
             SelectedPatchSourceOption = GetPatchSourceOption(LocalSource);
         }
 
-        _sourceProbeTask = null;
         _ = CheckProgramUpdateAsync();
     }
 
@@ -110,10 +101,6 @@ public partial class MainWindowViewModel : ObservableObject
     private bool HasMultipleBuiltInPatchUrls => BuiltInDownloadOptions.Count > 1;
     public bool ShowDownloadUrlInput => UseCustomSource || (UseDownloadSource && !HasMultipleBuiltInPatchUrls);
     public bool ShowBuiltInSourceSelector => UseDownloadSource && HasMultipleBuiltInPatchUrls;
-    public bool ShowSourceProbeProgress => ShowBuiltInSourceSelector && SourceProbeCompletedCount > 0 && SourceProbeCompletedCount < SourceProbeTotalCount;
-    public int SourceProbeTotalCount => BuiltInDownloadOptions.Count;
-    public double SourceProbeProgress => SourceProbeTotalCount > 0 ? SourceProbeCompletedCount * 100d / SourceProbeTotalCount : 0;
-    public string SourceProbeProgressText => SourceProbeTotalCount > 0 ? string.Format(T("ProbingSourcesProgress"), SourceProbeCompletedCount, SourceProbeTotalCount) : string.Empty;
     public bool IsLocalPatchReady => IsSupportedPatchFile(LocalPatchPath) && File.Exists(NormalizePath(LocalPatchPath));
     public bool ShowDownloadInstallButton => UseDownloadSource || UseCustomSource;
     public bool ShowLocalInstallButton => UseLocalSource && IsLocalPatchReady;
@@ -263,21 +250,9 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            if (UseDownloadSource && IsAutoBuiltInSourceSelected)
-            {
-                StatusText = T("ProbingSources");
-                DownloadText = T("ProbingSources");
-                _isShowingSourceProbeProgress = true;
-                DownloadProgress = SourceProbeProgress;
-                DownloadSpeedText = string.Empty;
-                _sourceProbeTask ??= ProbeBuiltInSourcesAsync();
-                await _sourceProbeTask;
-            }
-
             patchCandidates = GetEffectivePatchCandidates();
             if (patchCandidates.Length == 0)
             {
-                ClearProbeProgressIfNeeded();
                 StatusText = "补丁链接无效";
                 return;
             }
@@ -286,13 +261,14 @@ public partial class MainWindowViewModel : ObservableObject
         GamePath = NormalizePath(GamePath);
         if (!Directory.Exists(GamePath))
         {
-            ClearProbeProgressIfNeeded();
             StatusText = "游戏目录不存在";
             Step1Status = "未找到";
             return;
         }
 
         _installCancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _installCancellationTokenSource.Token;
+        var operationId = ++_installOperationId;
 
         IsBusy = true;
         CanInstall = false;
@@ -304,17 +280,13 @@ public partial class MainWindowViewModel : ObservableObject
         Step3Status = T("NotStarted");
         StatusText = "开始安装";
 
-        var workingRoot = Path.Combine(GamePath, ".temp");
+        var workingRoot = Path.Combine(GamePath, ".temp", "PatchInstaller");
         var extractPath = Path.Combine(workingRoot, "extracted");
-        var temporaryDownloadPath = string.Empty;
         string? archivePath = null;
+        var installationSucceeded = false;
 
         try
         {
-            if (patchCandidates.Length > 0)
-                temporaryDownloadPath =
-                    Path.Combine(workingRoot, GetTemporaryDownloadFileName(null, patchCandidates[0].Uri));
-
             PrepareWorkingDirectory(workingRoot, extractPath);
 
             if (useLocalPatch)
@@ -327,19 +299,18 @@ public partial class MainWindowViewModel : ObservableObject
             }
             else
             {
-                archivePath = temporaryDownloadPath;
-                await DownloadPatchAsync(patchCandidates, archivePath, _installCancellationTokenSource.Token);
+                archivePath = await DownloadPatchAsync(
+                    patchCandidates,
+                    Path.Combine(workingRoot, "downloads"),
+                    cancellationToken,
+                    operationId);
             }
 
-            _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            // 验证压缩包是否能被正常读取，避免后续解压时才发现问题
-            if (!ArchiveInstaller.IsArchiveValid(archivePath, workingRoot))
+            if (useLocalPatch)
             {
-                DownloadProgress = 0;
-                DownloadText = "";
-                DownloadSpeedText = string.Empty;
-                throw new InvalidOperationException("无法读取补丁文件，可能是下载过程中发生了损坏。请重试。");
+                await ArchiveInstaller.ValidateAsync(archivePath, cancellationToken, workingRoot);
             }
 
             if (!useLocalPatch) Step2Status = T("Completed");
@@ -348,22 +319,35 @@ public partial class MainWindowViewModel : ObservableObject
             DownloadProgress = 0;
             DownloadText = string.Format(T("ExtractingProgress"), 0d, 0, 0);
             DownloadSpeedText = string.Empty;
-            await ArchiveInstaller.ExtractAsync(archivePath, extractPath, ReportExtractProgress, workingRoot);
+            await ArchiveInstaller.ExtractAsync(
+                archivePath,
+                extractPath,
+                (completedEntries, totalEntries, currentEntry) => ReportExtractProgress(
+                    completedEntries,
+                    totalEntries,
+                    currentEntry,
+                    operationId,
+                    cancellationToken),
+                cancellationToken,
+                workingRoot);
 
-            _installCancellationTokenSource.Token.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
             var sourceRoot = ResolveExtractedRoot(extractPath);
             Step3Status = T("Installing");
             StatusText = T("InstallingPatch");
 
-            var copied = await ElevationHelper.CopyWithElevationFallbackAsync(sourceRoot, GamePath);
+            var copied = await ElevationHelper.CopyWithElevationFallbackAsync(sourceRoot, GamePath, cancellationToken);
             if (!copied) throw new InvalidOperationException("覆盖安装失败，可能是权限不足或管理员授权被取消。");
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             Step3Status = T("Completed");
             StatusText = "补丁安装完成";
             DownloadText = "处理完成";
             DownloadSpeedText = string.Empty; 
             await DialogService.ShowSuccessAsync();
+            installationSucceeded = true;
         }
         catch (OperationCanceledException)
         {
@@ -371,8 +355,6 @@ public partial class MainWindowViewModel : ObservableObject
                 Step2Status = T("Canceled");
             else if (IsStep3Active) Step3Status = T("Canceled");
 
-            ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
-            DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "安装已停止";
             DownloadProgress = 0;
             DownloadText = T("Canceled");
@@ -386,8 +368,6 @@ public partial class MainWindowViewModel : ObservableObject
                     Step2Status = T("Canceled");
                 else if (IsStep3Active) Step3Status = T("Canceled");
 
-                ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
-                DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
                 StatusText = "安装已停止";
                 DownloadProgress = 0;
                 DownloadText = T("Canceled");
@@ -410,21 +390,16 @@ public partial class MainWindowViewModel : ObservableObject
                 Step3Status = T("Failed");
             }
 
-            ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
-            DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
             StatusText = "";
             Debug.WriteLine(ex);
             await DialogService.ShowErrorAsync("安装失败", GetDisplayErrorMessage(ex));
         }
         finally
         {
-            if (!useLocalPatch)
+            if (installationSucceeded)
             {
-                ClearTemporaryPatchSelection(temporaryDownloadPath, useLocalPatch);
-                DeleteTemporaryDownloadArtifacts(temporaryDownloadPath);
+                CleanupWorkingDirectory(workingRoot);
             }
-
-            CleanupWorkingDirectory(workingRoot);
 
             _installCancellationTokenSource?.Dispose();
             _installCancellationTokenSource = null;
@@ -433,8 +408,11 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private async Task DownloadPatchAsync(IReadOnlyList<DownloadCandidate> patchCandidates, string downloadPath,
-        CancellationToken cancellationToken)
+    private async Task<string> DownloadPatchAsync(
+        IReadOnlyList<DownloadCandidate> patchCandidates,
+        string downloadRoot,
+        CancellationToken cancellationToken,
+        int operationId)
     {
         DownloadProgress = 0;
         DownloadText = T("ConnectingServer");
@@ -450,48 +428,38 @@ public partial class MainWindowViewModel : ObservableObject
 
             try
             {
+                if (ArchiveInstaller.IsMultipartArchiveFirstSegment(patchUri.AbsolutePath))
+                {
+                    throw new NotSupportedException("暂不支持从网络下载分卷压缩包，请先下载全部 .001、.002 等分片后使用本地补丁安装。");
+                }
+
                 DownloadText = string.Format(T("ConnectingSource"), sourceLabel);
-                await PatchDownloader.DownloadAsync(
+                var destinationDirectory = Path.Combine(downloadRoot, index.ToString());
+                var result = await PatchDownloader.DownloadAsync(
                     patchUri,
-                    downloadPath,
-                    ParallelDownloadSegments,
-                    DownloadRetryCount,
+                    destinationDirectory,
                     report => Dispatcher.UIThread.Post(() =>
                     {
-                        DownloadProgress = report.ProgressPercent;
-                        DownloadText = report.TotalBytes is > 0
-                            ? string.Format(T("DownloadingFromSourceProgress"), sourceLabel, report.ProgressPercent, FormatBytes(report.DownloadedBytes), FormatBytesPrecise(report.TotalBytes.Value))
+                        if (operationId != _installOperationId || cancellationToken.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        DownloadProgress = report.ProgressPercentage;
+                        DownloadText = report.TotalBytes > 0
+                            ? string.Format(T("DownloadingFromSourceProgress"), sourceLabel, report.ProgressPercentage, FormatBytes(report.DownloadedBytes), FormatBytesPrecise(report.TotalBytes))
                             : string.Format(T("DownloadingFromSourceBytes"), sourceLabel, FormatBytes(report.DownloadedBytes));
-                        DownloadSpeedText = report.BytesPerSecond > 0
-                            ? string.Format(T("DownloadSpeed"), FormatSpeed(report.BytesPerSecond))
+                        DownloadSpeedText = report.Speed > 0
+                            ? string.Format(T("DownloadSpeed"), FormatSpeed(report.Speed))
                             : string.Empty;
                     }),
                     cancellationToken);
 
-                if (ArchiveInstaller.IsArchiveValid(downloadPath, Path.GetDirectoryName(downloadPath)))
-                {
-                    DownloadProgress = 100;
-                    DownloadText = string.Format(T("DownloadedFromSource"), sourceLabel);
-                    DownloadSpeedText = string.Empty;
-                    return;
-                }
-
-                lastError = new InvalidOperationException($"从 {sourceLabel} 下载的补丁文件无法通过校验。");
-                DeleteTemporaryDownloadArtifacts(downloadPath);
-
-                if (index < patchCandidates.Count - 1)
-                {
-                    DownloadProgress = 0;
-                    var nextCandidate = patchCandidates[index + 1];
-                    var nextLabel = string.IsNullOrWhiteSpace(nextCandidate.Name)
-                        ? nextCandidate.Uri.Host
-                        : nextCandidate.Name;
-                    DownloadText = $"{sourceLabel} 下载完成但文件校验失败，正在尝试 {nextLabel}";
-                    DownloadSpeedText = string.Empty;
-                    continue;
-                }
-
-                throw lastError;
+                await ArchiveInstaller.ValidateAsync(result.FilePath, cancellationToken, destinationDirectory);
+                DownloadProgress = 100;
+                DownloadText = string.Format(T("DownloadedFromSource"), sourceLabel);
+                DownloadSpeedText = string.Empty;
+                return result.FilePath;
             }
             catch (OperationCanceledException)
             {
@@ -500,7 +468,6 @@ public partial class MainWindowViewModel : ObservableObject
             catch (Exception ex)
             {
                 lastError = ex;
-                DeleteTemporaryDownloadArtifacts(downloadPath);
 
                 if (index < patchCandidates.Count - 1)
                 {
@@ -529,10 +496,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             if (IsAutoBuiltInSourceSelected)
                 return BuiltInDownloadOptions
-                    .Select((option, index) => new { option, index })
-                    .OrderByDescending(item => item.option.SampleBytesPerSecond ?? 0d)
-                    .ThenBy(item => item.index)
-                    .Select(item => new DownloadCandidate(item.option.Name, new Uri(item.option.Url, UriKind.Absolute)))
+                    .Select(option => new DownloadCandidate(option.Name, new Uri(option.Url, UriKind.Absolute)))
                     .ToArray();
 
             var selectedSource = BuiltInPatchSources.FirstOrDefault(source =>
@@ -606,136 +570,6 @@ public partial class MainWindowViewModel : ObservableObject
         return false;
     }
 
-    private async Task ProbeBuiltInSourcesAsync()
-    {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            SourceProbeCompletedCount = BuiltInDownloadOptions.Count(option => option.IsProbeCompleted);
-            NotifySourceProbeProgressChanged();
-        });
-
-        var probeTasks = BuiltInDownloadOptions.Select(EnsureBuiltInSourceProbeAsync);
-
-        try
-        {
-            await Task.WhenAll(probeTasks);
-        }
-        catch (OperationCanceledException)
-        {
-            // ignored
-        }
-    }
-
-    public void StartBuiltInSourceProbe(BuiltInPatchSourceOption option)
-    {
-        _ = EnsureBuiltInSourceProbeAsync(option);
-    }
-
-    private Task EnsureBuiltInSourceProbeAsync(BuiltInPatchSourceOption option)
-    {
-        if (_sourceProbeTasks.TryGetValue(option, out var existingTask)) return existingTask;
-
-        var probeTask = ProbeBuiltInSourceAsync(option);
-        _sourceProbeTasks[option] = probeTask;
-        return probeTask;
-    }
-
-    private async Task ProbeBuiltInSourceAsync(BuiltInPatchSourceOption option)
-    {
-        try
-        {
-            await Dispatcher.UIThread.InvokeAsync(option.SetProbeStarted);
-
-            var probeResult =
-                await PatchDownloader.ProbeSourceAsync(new Uri(option.Url, UriKind.Absolute), _sourceProbeCancellationTokenSource.Token);
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (probeResult is null)
-                {
-                    option.SetProbeFailed(null);
-                    return;
-                }
-
-                if (!probeResult.IsSuccess)
-                {
-                    option.SetProbeFailed(probeResult.ErrorMessage);
-                    return;
-                }
-
-                option.SetProbeResult(probeResult.EffectiveUri.ToString(), probeResult.SampleBytes, probeResult.BytesPerSecond);
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            // ignored
-        }
-        finally
-        {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                SourceProbeCompletedCount = BuiltInDownloadOptions.Count(source => source.IsProbeCompleted);
-                NotifySourceProbeProgressChanged();
-                if (_isShowingSourceProbeProgress) DownloadProgress = SourceProbeProgress;
-            });
-        }
-    }
-
-    partial void OnSourceProbeCompletedCountChanged(int value)
-    {
-        NotifySourceProbeProgressChanged();
-    }
-
-    private void NotifySourceProbeProgressChanged()
-    {
-        OnPropertyChanged(nameof(ShowSourceProbeProgress));
-        OnPropertyChanged(nameof(SourceProbeProgress));
-        OnPropertyChanged(nameof(SourceProbeProgressText));
-    }
-
-    private void ClearProbeProgressIfNeeded()
-    {
-        if (!_isShowingSourceProbeProgress) return;
-
-        _isShowingSourceProbeProgress = false;
-        DownloadProgress = 0;
-        DownloadText = T("Waiting");
-        DownloadSpeedText = string.Empty;
-    }
-
-    private static string GetTemporaryDownloadFileName(string? suggestedFileName, Uri patchUri)
-    {
-        var fileName = string.IsNullOrWhiteSpace(suggestedFileName) ? GetFileNameFromUri(patchUri) : suggestedFileName;
-        return EnsureSupportedPatchFileName(fileName);
-    }
-
-    private static string GetFileNameFromUri(Uri patchUri)
-    {
-        var fileName = Path.GetFileName(Uri.UnescapeDataString(patchUri.LocalPath.TrimEnd('/')));
-        return string.IsNullOrWhiteSpace(fileName) ? "patch" : fileName;
-    }
-
-    private static string EnsureSupportedPatchFileName(string fileName)
-    {
-        return fileName;
-    }
-
-    private static void DeleteTemporaryDownloadArtifacts(string? temporaryPath)
-    {
-        if (string.IsNullOrWhiteSpace(temporaryPath)) return;
-
-        DeleteIfExists(temporaryPath);
-        DeleteIfExists(temporaryPath + ".meta");
-    }
-
-    private void ClearTemporaryPatchSelection(string? temporaryPath, bool useLocalPatch)
-    {
-        if (useLocalPatch || string.IsNullOrWhiteSpace(temporaryPath)) return;
-
-        if (string.Equals(NormalizePath(LocalPatchPath), NormalizePath(temporaryPath),
-                StringComparison.OrdinalIgnoreCase)) LocalPatchPath = string.Empty;
-    }
-
     private static void CleanupWorkingDirectory(string? workingRoot)
     {
         if (string.IsNullOrWhiteSpace(workingRoot) || !Directory.Exists(workingRoot)) return;
@@ -750,10 +584,20 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private void ReportExtractProgress(int completedEntries, int totalEntries, string currentEntry)
+    private void ReportExtractProgress(
+        int completedEntries,
+        int totalEntries,
+        string currentEntry,
+        int operationId,
+        CancellationToken cancellationToken)
     {
         Dispatcher.UIThread.Post(() =>
         {
+            if (operationId != _installOperationId || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
             var percent = totalEntries <= 0 ? 0d : completedEntries * 100d / totalEntries;
             DownloadProgress = percent;
             DownloadText = totalEntries <= 0
@@ -763,18 +607,6 @@ public partial class MainWindowViewModel : ObservableObject
                 ? string.Empty
                 : string.Format(T("CurrentFile"), Path.GetFileName(currentEntry));
         });
-    }
-
-    private static void DeleteIfExists(string path)
-    {
-        try
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
-        catch
-        {
-            // ignored
-        }
     }
 
     private static string? FindAutoSelectedPatchPath()
@@ -959,26 +791,9 @@ public partial class MainWindowViewModel : ObservableObject
     public partial class BuiltInPatchSourceOption(MainWindowViewModel owner, string name, string url) : ObservableObject
     {
         [ObservableProperty] private bool _isSelected;
-        private long? _sampleBytes;
-        private double? _sampleBytesPerSecond;
-        private string? _probeErrorMessage;
-        private bool _isProbeStarted;
-        private bool _isProbeCompleted;
 
         public string Name { get; } = name;
         public string Url { get; } = url;
-        public double? SampleBytesPerSecond => _sampleBytesPerSecond;
-        public bool IsProbeCompleted => _isProbeCompleted;
-        public string ProbeTooltip => Url;
-        public string ProbeTooltipStatus => !_isProbeStarted
-            ? "未测速"
-            : !_isProbeCompleted
-                ? T("ProbingSources")
-                : _sampleBytesPerSecond is > 0
-                    ? $"测速: {FormatFullSpeed(_sampleBytesPerSecond.Value)} / 采样 {FormatBytes(_sampleBytes ?? 0)}"
-                    : string.IsNullOrWhiteSpace(_probeErrorMessage)
-                        ? "测速失败"
-                        : $"测速失败：{_probeErrorMessage}";
 
         partial void OnIsSelectedChanged(bool value)
         {
@@ -990,48 +805,6 @@ public partial class MainWindowViewModel : ObservableObject
         public void SetSelected(bool value)
         {
             if (IsSelected != value) IsSelected = value;
-        }
-
-        public void SetProbeStarted()
-        {
-            _isProbeStarted = true;
-            _isProbeCompleted = false;
-            OnPropertyChanged(nameof(ProbeTooltipStatus));
-        }
-
-        public void SetProbeResult(string effectiveUrl, long sampleBytes, double sampleBytesPerSecond)
-        {
-            _sampleBytes = sampleBytes;
-            _sampleBytesPerSecond = sampleBytesPerSecond;
-            _probeErrorMessage = null;
-            _isProbeStarted = true;
-            _isProbeCompleted = true;
-            OnPropertyChanged(nameof(SampleBytesPerSecond));
-            OnPropertyChanged(nameof(ProbeTooltip));
-            OnPropertyChanged(nameof(ProbeTooltipStatus));
-        }
-
-        public void SetProbeFailed(string? errorMessage)
-        {
-            _sampleBytes = null;
-            _sampleBytesPerSecond = null;
-            _probeErrorMessage = errorMessage;
-            _isProbeStarted = true;
-            _isProbeCompleted = true;
-            OnPropertyChanged(nameof(SampleBytesPerSecond));
-            OnPropertyChanged(nameof(ProbeTooltip));
-            OnPropertyChanged(nameof(ProbeTooltipStatus));
-        }
-
-        private static string FormatFullSpeed(double bytesPerSecond)
-        {
-            if (bytesPerSecond >= 1024 * 1024)
-                return $"{bytesPerSecond / (1024 * 1024):0.00} MB/s";
-
-            if (bytesPerSecond >= 1024)
-                return $"{bytesPerSecond / 1024:0.00} KB/s";
-
-            return $"{bytesPerSecond:0.00} B/s";
         }
     }
 }
